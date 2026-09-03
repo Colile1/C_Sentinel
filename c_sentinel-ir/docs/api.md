@@ -53,7 +53,8 @@ request body, response body, and status codes.
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/health` on each service port | Liveness plus database reachability. Polled by Consul |
+| GET | `/health` on each service port | Liveness plus database reachability. 200 when healthy, 503 when the database is unreachable. Polled by Consul |
+| GET | `/health/live` on each service port | Bare liveness, never touches the database. Used by the container `HEALTHCHECK` so a database blip does not restart the process |
 | GET | `/metrics` on each service port | Prometheus exposition |
 
 ## Example request and response
