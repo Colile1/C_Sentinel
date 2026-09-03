@@ -19,10 +19,19 @@ from common.service import create_service_app
 
 from app.database import database_reachable, init_database
 from app.routers.auth_router import router as auth_router
+from app.services.bootstrap import ensure_bootstrap_admin
+
+
+def _on_startup() -> None:
+    """Purpose: prepare the schema, then seed the one bootstrap admin.
+    Inputs: none. Output: None."""
+    init_database()
+    ensure_bootstrap_admin()
+
 
 app = create_service_app(
     "auth-service",
     check_database=database_reachable,
-    on_startup=init_database,
+    on_startup=_on_startup,
 )
 app.include_router(auth_router)
