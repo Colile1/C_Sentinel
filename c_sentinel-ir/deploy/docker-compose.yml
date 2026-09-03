@@ -107,7 +107,9 @@ services:
       SERVICE_NAME: auth-service
       SERVICE_PORT: "8001"
       ADVERTISE_HOST: auth-service
-      DATABASE_URL: ${AUTH_DATABASE_URL:?set AUTH_DATABASE_URL in deploy/.env}
+      # Assembled from the DB parts so a password literal lives in exactly one
+      # variable (AUTH_DB_PASSWORD), never in a checked-in connection string.
+      DATABASE_URL: postgresql+psycopg://${AUTH_DB_USER:-auth_service}:${AUTH_DB_PASSWORD:?set AUTH_DB_PASSWORD in deploy/.env}@auth-db:5432/${AUTH_DB_NAME:-auth_db}
     ports:
       - "127.0.0.1:8001:8001"
     depends_on:
@@ -135,7 +137,7 @@ services:
       SERVICE_NAME: incident-service
       SERVICE_PORT: "8002"
       ADVERTISE_HOST: incident-service
-      DATABASE_URL: ${INCIDENT_DATABASE_URL:?set INCIDENT_DATABASE_URL in deploy/.env}
+      DATABASE_URL: postgresql+psycopg://${INCIDENT_DB_USER:-incident_service}:${INCIDENT_DB_PASSWORD:?set INCIDENT_DB_PASSWORD in deploy/.env}@incident-db:5432/${INCIDENT_DB_NAME:-incident_db}
       ASSET_SERVICE_URL: ${ASSET_SERVICE_URL:-http://asset-service:8003}
       DEPENDENCY_TIMEOUT_SECONDS: ${DEPENDENCY_TIMEOUT_SECONDS:-3.0}
       RETRY_MAX_ATTEMPTS: ${RETRY_MAX_ATTEMPTS:-3}
@@ -169,7 +171,7 @@ services:
       SERVICE_NAME: asset-service
       SERVICE_PORT: "8003"
       ADVERTISE_HOST: asset-service
-      DATABASE_URL: ${ASSET_DATABASE_URL:?set ASSET_DATABASE_URL in deploy/.env}
+      DATABASE_URL: postgresql+psycopg://${ASSET_DB_USER:-asset_service}:${ASSET_DB_PASSWORD:?set ASSET_DB_PASSWORD in deploy/.env}@asset-db:5432/${ASSET_DB_NAME:-asset_db}
     ports:
       - "127.0.0.1:8003:8003"
     depends_on:
