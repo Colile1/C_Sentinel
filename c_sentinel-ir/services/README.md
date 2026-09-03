@@ -33,6 +33,12 @@ tests/             unit tests for services/ and repositories/, runnable without 
 
 `app/` and `tests/` are specified by their service's README rather than carrying their own.
 
+`tests/` deliberately has no `__init__.py`. All three services name that folder the same thing, so
+under pytest's default import mode the second one collides with the first; the suite runs with
+`--import-mode=importlib` instead, which resolves each module by path. One consequence: a test
+module cannot import from its own `conftest.py`, so shared helpers are exposed as fixtures. See
+`DECISIONS.md` D-12.
+
 ## The rule that must never be broken
 
 No service may read another service's database. Cross-service data travels over HTTP through the
