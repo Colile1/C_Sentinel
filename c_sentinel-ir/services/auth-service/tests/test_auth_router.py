@@ -151,9 +151,15 @@ def test_verify_without_a_header_is_401(client: TestClient) -> None:
 
 
 def test_verify_rejects_a_non_bearer_scheme(client: TestClient) -> None:
-    """Basic auth is not accepted anywhere in this system."""
+    """
+    Basic auth is not accepted anywhere in this system.
+
+    The credential is deliberately not a base64 payload: a real-looking one is
+    indistinguishable from a leaked secret to a scanner, and what this test
+    asserts is the scheme, which never reaches the decoder.
+    """
     response = client.get(
-        "/api/v1/auth/verify", headers={"Authorization": "Basic YWRtaW46YWRtaW4="}
+        "/api/v1/auth/verify", headers={"Authorization": "Basic not-a-real-credential"}
     )
     assert response.status_code == 401
 
