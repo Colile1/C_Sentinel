@@ -51,8 +51,28 @@ a failure threshold and a reset timeout, both from configuration. The declared f
 `AssetSummary` marked `available=False`, so the incident is still created — degraded, not failed —
 and the incident record carries the fact that the asset could not be verified.
 
-**Where the code is.** `libs/common/http_client.py`; the fallback and the only call site in
-`services/incident-service/app/services/asset_gateway.py`.
+Three decisions in that implementation are worth stating, because each is a way the pattern is
+commonly got wrong:
+
+1. **Retry nests inside the breaker** — `breaker( retry( one GET ) )`. A request retried three times
+   and still failing counts as *one* failure against the threshold, not three. Nested the other way,
+   a threshold of three would trip on the retries of a single request and the configured value would
+   mean nothing.
+2. **Only transient faults are counted.** A connection error, a timeout and a 5xx are the dependency
+   faulting. A 404 is a *correct answer from a healthy service*: it propagates unretried and never
+   counts, because otherwise one client asking for an id that does not exist would take
+   `asset-service` out of service for everyone.
+3. **The client is long-lived**, cached per dependency URL in `asset_gateway._client_for`. The
+   breaker's failure count *is* the pattern's state; a client rebuilt per call counts to one, never
+   reaches its threshold, and never opens — which still passes a happy-path demo while quietly
+   losing the mark.
+
+**Where the code is.** `libs/common/http_client.py` (the calling policy) and
+`libs/common/circuit_events.py` (the events); the fallback and the only call site in
+`services/incident-service/app/services/asset_gateway.py`. Thresholds are the
+`retry_*` and `circuit_*` settings in `libs/common/config.py`, read from the environment as
+`RETRY_MAX_ATTEMPTS`, `RETRY_BACKOFF_SECONDS`, `CIRCUIT_FAIL_MAX` and `CIRCUIT_RESET_SECONDS`;
+step 9 declares them in `deploy/.env.example`.
 
 **Why it matters.** Without it, `asset-service` going down turns every incident creation into a
 hung request and then a 500, and the failure propagates to the client — one service's outage
@@ -64,7 +84,32 @@ instantly, and `CIRCUIT_OPENED` appears in the log. Restart the service, wait ou
 and `CIRCUIT_CLOSED` appears. Fast responses after a slow one is the observable signature of an open
 breaker, and it is worth saying that out loud on camera.
 
-**Filled in at build step 8.**
+That contrast is already captured offline, reproducible without Docker by
+`python scripts/capture_breaker_evidence.py`, and committed as
+`docs/evidence/step8-circuit-breaker-timings.txt`:
+
+```
+Call 1: state=closed, elapsed_ms=53.6, result={'name': 'unknown', 'available': False}
+Call 2: state=closed, elapsed_ms=41.6, result={'name': 'unknown', 'available': False}
+Call 3: state=open,   elapsed_ms=42.8, result={'name': 'unknown', 'available': False}
+Call 4: state=open,   elapsed_ms=0.1,  result={'name': 'unknown', 'available': False}
+Call 5: state=open,   elapsed_ms=0.0,  result={'name': 'unknown', 'available': False}
+Call 6: state=closed, elapsed_ms=4.1,  result={'id': 1, 'name': 'web-01'}
+```
+
+Calls 1–3 are slow because they retry a dependency that is down; call 3 crosses the threshold and
+trips the breaker; calls 4 and 5 return in effectively zero milliseconds because no network is
+touched; call 6, after the dependency recovers and the reset timeout elapses, is the half-open trial
+that closes the breaker. The matching event stream is
+`docs/evidence/step8-circuit-breaker-events.jsonl` — three `DEPENDENCY_FAILURE`, one
+`CIRCUIT_OPENED`, one `CIRCUIT_CLOSED`. Note there is no `DEPENDENCY_FAILURE` for calls 4 and 5:
+those never left the process, and recording them would inflate Phase 2's Rule 4 with calls that
+never reached the network.
+
+**Built at step 8.** Proven by `libs/common/tests/test_http_client.py` — 13 tests, including the two
+the build order asks for by name (a transient failure retried and then succeeding; consecutive
+failures opening the breaker, returning the fallback and logging the state change) and one that
+fails if retry is ever nested outside the breaker.
 
 ## Implemented but not claimed
 
