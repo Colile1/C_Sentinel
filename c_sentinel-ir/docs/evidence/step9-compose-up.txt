@@ -1,0 +1,22 @@
+# Step 9 evidence - Docker Compose stack healthy
+# Captured 2026-09-03T14:24:01Z. Clean build; pip cache mount in Dockerfile.service.
+
+## docker compose ps
+sentinel-consul            hashicorp/consul:1.19             healthy
+sentinel-auth-db           postgres:16                      healthy
+sentinel-incident-db       postgres:16                      healthy
+sentinel-asset-db          postgres:16                      healthy
+sentinel-auth-service      sentinel-ir/auth-service:0.1.0    healthy  127.0.0.1:8001->8001
+sentinel-incident-service  sentinel-ir/incident-service:0.1.0 healthy  127.0.0.1:8002->8002
+sentinel-asset-service     sentinel-ir/asset-service:0.1.0   healthy  127.0.0.1:8003->8003
+
+## /health (direct ports) - all 200
+8001 {"status":"healthy","service":"auth-service","checks":{"database":"ok"}}
+8002 {"status":"healthy","service":"incident-service","checks":{"database":"ok"}}
+8003 {"status":"healthy","service":"asset-service","checks":{"database":"ok"}}
+
+## Consul /v1/health/state/passing - 4 passing (serfHealth + 3 services)
+
+## Build
+docker compose build --no-cache : clean from-scratch build, run serially on a slow link (~4 min)
+docker compose build           : 0 downloads / ~9s after first warm - pip cache mount, safe in parallel

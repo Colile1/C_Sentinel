@@ -1,0 +1,79 @@
+# syntax=docker/dockerfile:1.7
+# deploy/Dockerfile.service - the one image build all three FastAPI services share.
+#
+# One Dockerfile, not three near-identical ones (deploy/README.md, the DRY rule).
+# The service is selected at build time by the SERVICE_NAME argument, which names
+# a directory under services/. The build context is the repository root, because
+# every image needs libs/ and requirements.lock.txt as well as its own app/.
+#
+# Multi-stage: the builder compiles wheels and installs them into a private
+# virtualenv; the runtime stage copies only that venv and the service's app/, so
+# no compiler, no cache and no other service's code ships in the image.
+#
+# The `pip install` step mounts a BuildKit cache at pip's download directory,
+# shared by all three image builds. On an ordinary `docker compose build` the
+# wheels are fetched from PyPI once and every rebuild installs from disk, so
+# three parallel builds no longer each re-download ~60 MB and time out on a
+# contended connection. (`docker compose build --no-cache` deliberately also
+# empties this mount - see deploy/README.md for when to use which.)
+#
+# Author: Colile
+
+# --- builder -----------------------------------------------------------------
+FROM python:3.11-slim AS builder
+
+# Dependencies install from the committed lock file, never from the unpinned
+# requirements.txt (requirements.txt says so in its own header). The generous
+# pip timeout and retry count are the fallback when the cache mount below is
+# cold; together they keep a clean build reproducible on a slow or contended
+# connection, not only on this laptop's fast one.
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=5 \
+    VIRTUAL_ENV=/opt/venv \
+    PATH=/opt/venv/bin:$PATH
+
+RUN python -m venv "$VIRTUAL_ENV"
+
+WORKDIR /build
+
+# The cache mount at pip's download dir is shared across all three service
+# builds and survives --no-cache, so wheels are downloaded from PyPI once.
+COPY requirements.lock.txt ./
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.lock.txt
+
+# Install libs/ as the `common` package, the same way a developer does locally.
+COPY pyproject.toml ./
+COPY libs/ ./libs/
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-deps .
+
+# --- runtime ---------------------------------------------------------------
+FROM python:3.11-slim AS runtime
+
+ARG SERVICE_NAME
+RUN test -n "$SERVICE_NAME" || (echo "SERVICE_NAME build arg is required" && false)
+
+# Run as a non-root user; nothing in a service needs root.
+RUN useradd --create-home --uid 10001 sentinel
+
+ENV VIRTUAL_ENV=/opt/venv \
+    PATH=/opt/venv/bin:$PATH \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+COPY --from=builder /opt/venv /opt/venv
+
+WORKDIR /app
+# Only this service's application package. `import app.main` resolves because
+# the working directory is on sys.path.
+COPY services/${SERVICE_NAME}/app/ ./app/
+
+USER sentinel
+
+# Every service binds SERVICE_PORT (config.py default 8000); Compose sets it.
+EXPOSE 8000
+
+# uvicorn serves the shared FastAPI shell built by common.service.create_service_app.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${SERVICE_PORT:-8000}"]

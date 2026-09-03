@@ -1,0 +1,190 @@
+# deploy/docker-compose.yml - the whole Sentinel-IR stack in one file.
+#
+# `docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d`
+# from the repository root brings up: Consul, three PostgreSQL containers (one
+# per service, D-04), and the three FastAPI services, each its own image built
+# from deploy/Dockerfile.service with the repository root as build context.
+#
+# Kong, Prometheus and Grafana join this file at build steps 10 and 11.
+#
+# Every service:
+#   - is built from the SAME Dockerfile, selected by the SERVICE_NAME build arg
+#     (one file, not three - deploy/README.md);
+#   - gets exactly ONE database URL, its own (D-04);
+#   - advertises itself to Consul under its Compose service name, which is the
+#     address other containers and Consul's health check resolve;
+#   - publishes its inspection port (8001-8003) to localhost for the demo.
+#
+# Author: Colile
+
+name: sentinel-ir
+
+x-service-env: &service-common-env
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  CONSUL_HOST: ${CONSUL_HOST:-consul}
+  CONSUL_PORT: ${CONSUL_PORT:-8500}
+  CONSUL_ENABLED: ${CONSUL_ENABLED:-true}
+  JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in deploy/.env}
+  JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+  JWT_EXPIRY_MINUTES: ${JWT_EXPIRY_MINUTES:-60}
+
+x-db-healthcheck: &db-healthcheck
+  interval: 5s
+  timeout: 3s
+  retries: 10
+  start_period: 10s
+
+services:
+
+  # --- service registry -----------------------------------------------------
+  consul:
+    image: hashicorp/consul:1.19
+    container_name: sentinel-consul
+    command: agent -dev -client=0.0.0.0 -ui
+    ports:
+      - "127.0.0.1:8500:8500"
+    healthcheck:
+      test: ["CMD", "consul", "info"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # --- databases: one container per service (D-04) -----------------------
+  auth-db:
+    image: postgres:16
+    container_name: sentinel-auth-db
+    environment:
+      POSTGRES_DB: ${AUTH_DB_NAME:-auth_db}
+      POSTGRES_USER: ${AUTH_DB_USER:-auth_service}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:?set AUTH_DB_PASSWORD in deploy/.env}
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+      - ./postgres/init/auth-db.sql:/docker-entrypoint-initdb.d/10-auth-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AUTH_DB_USER:-auth_service} -d ${AUTH_DB_NAME:-auth_db}"]
+      <<: *db-healthcheck
+
+  incident-db:
+    image: postgres:16
+    container_name: sentinel-incident-db
+    environment:
+      POSTGRES_DB: ${INCIDENT_DB_NAME:-incident_db}
+      POSTGRES_USER: ${INCIDENT_DB_USER:-incident_service}
+      POSTGRES_PASSWORD: ${INCIDENT_DB_PASSWORD:?set INCIDENT_DB_PASSWORD in deploy/.env}
+    volumes:
+      - incident-db-data:/var/lib/postgresql/data
+      - ./postgres/init/incident-db.sql:/docker-entrypoint-initdb.d/10-incident-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${INCIDENT_DB_USER:-incident_service} -d ${INCIDENT_DB_NAME:-incident_db}"]
+      <<: *db-healthcheck
+
+  asset-db:
+    image: postgres:16
+    container_name: sentinel-asset-db
+    environment:
+      POSTGRES_DB: ${ASSET_DB_NAME:-asset_db}
+      POSTGRES_USER: ${ASSET_DB_USER:-asset_service}
+      POSTGRES_PASSWORD: ${ASSET_DB_PASSWORD:?set ASSET_DB_PASSWORD in deploy/.env}
+    volumes:
+      - asset-db-data:/var/lib/postgresql/data
+      - ./postgres/init/asset-db.sql:/docker-entrypoint-initdb.d/10-asset-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ASSET_DB_USER:-asset_service} -d ${ASSET_DB_NAME:-asset_db}"]
+      <<: *db-healthcheck
+
+  # --- domain services --------------------------------------------------
+  auth-service:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.service
+      args:
+        SERVICE_NAME: auth-service
+    image: sentinel-ir/auth-service:0.1.0
+    container_name: sentinel-auth-service
+    environment:
+      <<: *service-common-env
+      SERVICE_NAME: auth-service
+      SERVICE_PORT: "8001"
+      ADVERTISE_HOST: auth-service
+      DATABASE_URL: ${AUTH_DATABASE_URL:?set AUTH_DATABASE_URL in deploy/.env}
+    ports:
+      - "127.0.0.1:8001:8001"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/health/live').status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  incident-service:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.service
+      args:
+        SERVICE_NAME: incident-service
+    image: sentinel-ir/incident-service:0.1.0
+    container_name: sentinel-incident-service
+    environment:
+      <<: *service-common-env
+      SERVICE_NAME: incident-service
+      SERVICE_PORT: "8002"
+      ADVERTISE_HOST: incident-service
+      DATABASE_URL: ${INCIDENT_DATABASE_URL:?set INCIDENT_DATABASE_URL in deploy/.env}
+      ASSET_SERVICE_URL: ${ASSET_SERVICE_URL:-http://asset-service:8003}
+      DEPENDENCY_TIMEOUT_SECONDS: ${DEPENDENCY_TIMEOUT_SECONDS:-3.0}
+      RETRY_MAX_ATTEMPTS: ${RETRY_MAX_ATTEMPTS:-3}
+      RETRY_BACKOFF_SECONDS: ${RETRY_BACKOFF_SECONDS:-0.2}
+      CIRCUIT_FAIL_MAX: ${CIRCUIT_FAIL_MAX:-3}
+      CIRCUIT_RESET_SECONDS: ${CIRCUIT_RESET_SECONDS:-15.0}
+    ports:
+      - "127.0.0.1:8002:8002"
+    depends_on:
+      incident-db:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8002/health/live').status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  asset-service:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.service
+      args:
+        SERVICE_NAME: asset-service
+    image: sentinel-ir/asset-service:0.1.0
+    container_name: sentinel-asset-service
+    environment:
+      <<: *service-common-env
+      SERVICE_NAME: asset-service
+      SERVICE_PORT: "8003"
+      ADVERTISE_HOST: asset-service
+      DATABASE_URL: ${ASSET_DATABASE_URL:?set ASSET_DATABASE_URL in deploy/.env}
+    ports:
+      - "127.0.0.1:8003:8003"
+    depends_on:
+      asset-db:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8003/health/live').status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+volumes:
+  auth-db-data:
+  incident-db-data:
+  asset-db-data:

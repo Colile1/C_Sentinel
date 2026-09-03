@@ -1,0 +1,11 @@
+# Files that run inside Linux containers must keep LF endings regardless of the
+# host. core.autocrlf is true on the build machine; without this a fresh clone
+# on Windows would rewrite these to CRLF and the container shell would choke on
+# the line endings (a Dockerfile RUN, an entrypoint, a psql init script).
+*.sql            text eol=lf
+Dockerfile*      text eol=lf
+*.yml            text eol=lf
+*.yaml           text eol=lf
+*.sh             text eol=lf
+.dockerignore    text eol=lf
+.env.example     text eol=lf

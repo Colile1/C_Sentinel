@@ -4,14 +4,56 @@ Everything needed to run the whole system with one command. Fifteen percent of D
 services are *independently containerised*, and the submission sheet asks for proof on camera that
 Docker hosts them — separate containers, separate images, separate lifecycles.
 
-## Planned files
+## Files
 
 | File | Responsibility |
 |------|----------------|
-| `docker-compose.yml` | The full stack: Kong gateway, Consul, three services, their databases, Prometheus, Grafana. Health checks and `depends_on` conditions so `up` reaches a working system unattended |
-| `Dockerfile.service` | The shared multi-stage build for a FastAPI service, parameterised by build argument. One file rather than three near-identical ones, per the DRY rule |
-| `.env.example` | Every environment variable with a safe placeholder: database credentials, `JWT_SECRET`, token expiry, Consul address, log level, Grafana admin password. Copied to `.env`, which is git-ignored |
-| `postgres/init/` | Per-service database initialisation SQL, one file per service database |
+| `docker-compose.yml` | The stack: Consul, three PostgreSQL containers, three services. Health checks and `depends_on: condition: service_healthy` so `up` reaches a working system unattended. Kong, Prometheus and Grafana join it at build steps 10 and 11 |
+| `Dockerfile.service` | The shared multi-stage build for a FastAPI service, selected by the `SERVICE_NAME` build argument. One file rather than three near-identical ones, per the DRY rule. Build context is the repository root, because every image needs `libs/` and `requirements.lock.txt` as well as its own `app/` |
+| `.env.example` | Every environment variable with a safe placeholder: per-service database credentials and URLs, `JWT_SECRET`, token expiry, Consul address, log level, the resilience thresholds. Copied to `.env`, which is git-ignored |
+| `postgres/init/` | Per-service database initialisation SQL, one file per service database — `auth-db.sql`, `incident-db.sql`, `asset-db.sql` |
+
+## Running it
+
+```
+cp deploy/.env.example deploy/.env          # then edit JWT_SECRET for a real run
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml build
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml ps
+```
+
+### Build performance and the contended-connection failure
+
+`Dockerfile.service` mounts a BuildKit cache at pip's download directory, shared by all three image
+builds. This is the fix for the failure mode where a plain parallel `docker compose build` had
+three `pip install` steps each pulling the same ~60 MB of wheels at once, saturating a modest link
+and dying with `ReadTimeoutError` or a spurious "No matching distribution":
+
+- **`docker compose build`** (no flag) — the everyday command. First run downloads each wheel once
+  into the shared cache; every rebuild after that installs from disk with no network. Fast and safe
+  to run in parallel.
+- **`docker compose build --no-cache`** — the step-9 verification command, and the *only* one that
+  reproduces a genuine clean build. `--no-cache` in Compose deliberately empties the cache mount
+  too, so all wheels are re-downloaded. On a contended connection, run it serially so only one
+  download is in flight at a time:
+
+  ```
+  for s in auth-service incident-service asset-service; do
+    docker compose --env-file deploy/.env -f deploy/docker-compose.yml build --no-cache "$s"
+  done
+  ```
+
+  A serial `--no-cache` run of all three takes about four minutes here and never times out. Use the
+  plain `docker compose build` for every rebuild that is not specifically proving a from-scratch
+  build.
+
+BuildKit must be the builder for the cache mount to work; Docker Desktop and Compose v2 use it by
+default, and `# syntax=docker/dockerfile:1.7` at the top of `Dockerfile.service` pins the frontend
+that understands `--mount=type=cache`. The images are identical whichever way they are built.
+
+Each service listens on its inspection port inside the container (`auth-service` 8001,
+`incident-service` 8002, `asset-service` 8003), published only to `127.0.0.1`, and advertises itself
+to Consul under its Compose service name so the health check and Kong both resolve it.
 
 ## Containers
 
