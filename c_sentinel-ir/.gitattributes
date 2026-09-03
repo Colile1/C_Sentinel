@@ -9,3 +9,5 @@ Dockerfile*      text eol=lf
 *.sh             text eol=lf
 .dockerignore    text eol=lf
 .env.example     text eol=lf
+# Grafana loads this dashboard from a read-only mount inside its container.
+observability/grafana/dashboards/*.json text eol=lf

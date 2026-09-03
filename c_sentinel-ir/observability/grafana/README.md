@@ -12,5 +12,8 @@ rebuild and can be committed and marked.
 Anonymous viewer access is enabled in Compose so the demo does not spend thirty seconds on a login
 screen; the admin password still comes from `deploy/.env`.
 
-Done when: `localhost:3000` opens straight onto the dashboard and the panels show data produced by
+The host port is **3001** (`localhost:3001`), not Grafana's default 3000 - that port is often
+already taken by another dev server. Inside the container Grafana still listens on 3000.
+
+Done when: `localhost:3001` opens straight onto the dashboard and the panels show data produced by
 `python client/demo_workflow.py`.

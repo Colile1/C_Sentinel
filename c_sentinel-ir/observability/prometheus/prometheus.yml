@@ -1,0 +1,47 @@
+# observability/prometheus/prometheus.yml - Prometheus scrape configuration.
+#
+# One job per metrics source on the Compose network. Every FastAPI service
+# exposes /metrics through prometheus-fastapi-instrumentator (libs/common/
+# service.py); Kong exposes /metrics on its Admin API listener once the
+# `prometheus` plugin is enabled in gateway/kong.yml.
+#
+# The `job` label (auth-service, incident-service, asset-service, kong) is the
+# identifier every dashboard query groups on. No extra static `service` label is
+# set here: Kong's own metrics already carry a `service` label, and a static one
+# would collide with it and push Kong's real value to `exported_service`.
+#
+# Prometheus is scraped by nobody - Grafana reads it, and nothing in the
+# services depends on it being up. Bound to 127.0.0.1:9090 in docker-compose.
+#
+# Author: Colile
+
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  external_labels:
+    stack: sentinel-ir
+
+scrape_configs:
+
+  - job_name: auth-service
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["auth-service:8001"]
+
+  - job_name: incident-service
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["incident-service:8002"]
+
+  - job_name: asset-service
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["asset-service:8003"]
+
+  # Kong publishes Prometheus metrics on its Admin API listener (:8081) when the
+  # `prometheus` plugin is loaded. Gateway-side request counts and latencies,
+  # labelled by `route` (auth-login / incidents / assets) and status `code`.
+  - job_name: kong
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["kong:8081"]
