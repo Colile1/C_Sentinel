@@ -1,0 +1,48 @@
+# .dockerignore - keep the build context (the repository root) small and
+# reproducible. Anything not needed to build a service image is excluded so a
+# clean checkout on another machine builds byte-for-byte the same.
+
+# Virtualenvs and caches
+.venv/
+venv/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.mypy_cache/
+**/*.egg-info/
+build/
+dist/
+.coverage
+htmlcov/
+
+# Local databases and state
+**/*.db
+**/*.sqlite3
+data/
+
+# Secrets and local env
+.env
+deploy/.env
+
+# Tests are not copied into images
+services/*/tests/
+libs/common/tests/
+tests/
+
+# Phase 2 scaffolding - not part of any Phase 1 image
+soc/
+kg/
+rag/
+
+# Docs, evidence, git
+docs/
+.git/
+.github/
+*.md
+!requirements.lock.txt
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
