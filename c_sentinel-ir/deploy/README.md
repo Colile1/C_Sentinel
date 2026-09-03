@@ -10,13 +10,13 @@ Docker hosts them — separate containers, separate images, separate lifecycles.
 |------|----------------|
 | `docker-compose.yml` | The stack: Consul, three PostgreSQL containers, three services. Health checks and `depends_on: condition: service_healthy` so `up` reaches a working system unattended. Kong, Prometheus and Grafana join it at build steps 10 and 11 |
 | `Dockerfile.service` | The shared multi-stage build for a FastAPI service, selected by the `SERVICE_NAME` build argument. One file rather than three near-identical ones, per the DRY rule. Build context is the repository root, because every image needs `libs/` and `requirements.lock.txt` as well as its own `app/` |
-| `.env.example` | Every environment variable with a safe placeholder: per-service database credentials and URLs, `JWT_SECRET`, token expiry, Consul address, log level, the resilience thresholds. Copied to `.env`, which is git-ignored |
+| `.env.example` | Every environment variable with a safe placeholder: per-service database name, user and password (the `DATABASE_URL` is assembled from these three in `docker-compose.yml`, so no connection string is checked in), `JWT_SECRET`, token expiry, Consul address, log level, the resilience thresholds. Copied to `.env`, which is git-ignored; replace every `CHANGE_ME` before a real run |
 | `postgres/init/` | Per-service database initialisation SQL, one file per service database — `auth-db.sql`, `incident-db.sql`, `asset-db.sql` |
 
 ## Running it
 
 ```
-cp deploy/.env.example deploy/.env          # then edit JWT_SECRET for a real run
+cp deploy/.env.example deploy/.env          # then replace every CHANGE_ME (JWT_SECRET, the *_DB_PASSWORD values)
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml build
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml ps
