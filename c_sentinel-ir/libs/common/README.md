@@ -1,0 +1,32 @@
+# libs/common/
+
+The shared foundation every service is built on. Its job is to make the things that must be
+identical across services — the event schema, the log format, the correlation ID, the way one
+service calls another — impossible to get wrong locally, because there is only one implementation.
+
+This package is pure infrastructure with no domain knowledge. It must not know what an incident or
+an asset is.
+
+## Planned files
+
+| File | Responsibility |
+|------|----------------|
+| `config.py` | `load_settings(service_name: str) -> Settings` — reads environment variables into a validated Pydantic settings object (database URL, JWT secret, Consul address, service name, port, log level). A missing required variable raises `ConfigurationError` naming the variable. No defaults for secrets. |
+| `errors.py` | The typed error hierarchy: `SentinelError` base, then `ConfigurationError`, `NotFoundError`, `ValidationError`, `AuthenticationError`, `AuthorisationError`, `ConflictError`, `DependencyUnavailableError`. No framework import, so business logic may raise without depending on FastAPI. |
+| `error_handlers.py` | `install_error_handlers(app)` — the single place errors become HTTP status codes, so no router writes its own. Split from `errors.py` because it needs FastAPI; see D-06. |
+| `events.py` | `SecurityEvent` — the Pydantic model of the schema in `docs/soc-events.md`, and `EventType` / `Severity` enums. `build_event(...) -> SecurityEvent` is the only sanctioned way to construct one. Extra fields are forbidden; missing required fields raise. |
+| `correlation.py` | The request-scoped correlation id, held in a `ContextVar` so it is per-task and safe under concurrency. `get_correlation_id`, `set_correlation_id`, `new_correlation_id`, and the `CORRELATION_ID_HEADER` constant. |
+| `logging.py` | `configure_logging(service_name, log_level)` installs a JSON formatter on stdout. `emit_event(event: SecurityEvent) -> None` writes one event as a single JSON line, in the bare published schema with no log-record wrapping. The only sanctioned event writer. |
+| `middleware.py` | `CorrelationIdMiddleware` reads `X-Correlation-ID`, generates one when absent, binds it for the request and echoes it on the response. `SecurityEventMiddleware` emits the `REQUEST_RECEIVED` / `REQUEST_COMPLETED` pair and `SERVICE_ERROR` on a 5xx. Split from `logging.py` because it needs Starlette; see D-06. |
+| `registry.py` | `register_service(settings) -> None` and `deregister_service(settings) -> None` — Consul self-registration on startup and clean deregistration on shutdown, including the health-check definition Consul polls. |
+| `http_client.py` | `ResilientClient.get(path, correlation_id, fallback)` — the only way one service may call another. Wraps httpx in retry-with-exponential-backoff for transient failures and a circuit breaker that, once open, returns the caller's declared fallback without touching the network. Every state change emits a `DEPENDENCY_FAILURE` or `CIRCUIT_OPENED` security event. |
+| `health.py` | `build_health_router(check_database)` — the shared `/health` endpoint reporting the service's own liveness and whether its database is reachable. |
+
+## Integration
+
+Imported by all three services and, in Phase 2, by `soc/` for the event schema. Depends only on
+third-party libraries — never on a service, never on `soc`, `kg` or `rag`. `http_client.py` depends
+on `events.py` and `logging.py`; nothing in this package depends on `http_client.py`.
+
+Done when: a service can be started with nothing of its own but a router, and it already registers
+with Consul, serves `/health`, logs JSON with a correlation ID, and emits schema-valid events.
