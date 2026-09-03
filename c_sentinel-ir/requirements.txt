@@ -1,0 +1,25 @@
+# Sentinel-IR — shared Python dependencies.
+# UNPINNED ON PURPOSE. Build step 1 pins every version with `pip freeze` and
+# commits the result. Do not build past step 1 against unpinned dependencies.
+
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+sqlalchemy
+psycopg[binary]
+alembic
+python-jose[cryptography]
+bcrypt
+httpx
+tenacity
+pybreaker
+python-json-logger
+prometheus-fastapi-instrumentator
+python-consul2
+pytest
+pytest-asyncio
+
+# Phase 2 only — install when build step 12 begins.
+# neo4j
+# sentence-transformers
