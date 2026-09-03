@@ -18,15 +18,18 @@ an asset is.
 | `correlation.py` | The request-scoped correlation id, held in a `ContextVar` so it is per-task and safe under concurrency. `get_correlation_id`, `set_correlation_id`, `new_correlation_id`, and the `CORRELATION_ID_HEADER` constant. |
 | `logging.py` | `configure_logging(service_name, log_level)` installs a JSON formatter on stdout. `emit_event(event: SecurityEvent) -> None` writes one event as a single JSON line, in the bare published schema with no log-record wrapping. The only sanctioned event writer. |
 | `middleware.py` | `CorrelationIdMiddleware` reads `X-Correlation-ID`, generates one when absent, binds it for the request and echoes it on the response. `SecurityEventMiddleware` emits the `REQUEST_RECEIVED` / `REQUEST_COMPLETED` pair and `SERVICE_ERROR` on a 5xx. Split from `logging.py` because it needs Starlette; see D-06. |
-| `registry.py` | `register_service(settings) -> None` and `deregister_service(settings) -> None` — Consul self-registration on startup and clean deregistration on shutdown, including the health-check definition Consul polls. |
+| `registry.py` | `register_service(settings) -> None` and `deregister_service(settings) -> None` — Consul self-registration on startup and clean deregistration on shutdown, including the HTTP health-check definition Consul polls. When Consul is unreachable or `CONSUL_ENABLED` is false, a warning is logged and the service continues: discovery is not on the request path. |
 | `http_client.py` | `ResilientClient.get(path, correlation_id, fallback)` — the only way one service may call another. Wraps httpx in retry-with-exponential-backoff for transient failures and a circuit breaker that, once open, returns the caller's declared fallback without touching the network. Every state change emits a `DEPENDENCY_FAILURE` or `CIRCUIT_OPENED` security event. |
-| `health.py` | `build_health_router(check_database)` — the shared `/health` endpoint reporting the service's own liveness and whether its database is reachable. |
+| `health.py` | `build_health_router(service_name, check_database)` — the shared router carrying `GET /health` (liveness plus database reachability; 200 when the database answers or the service has none, 503 when a configured database does not) and `GET /health/live` (bare liveness for the container restart policy, never touches the database). Framework-coupled, so it is its own file; see D-06. |
+| `service.py` | `create_service_app(service_name, *, check_database=None, settings=None, on_startup=None, on_shutdown=None) -> FastAPI` — the one wiring all three services share: `configure_logging`, the correlation and security-event middleware, `install_error_handlers`, the Prometheus `/metrics` endpoint, the `/health` router, and a lifespan that registers with Consul on startup and deregisters on shutdown. Each service's `app/main.py` calls this and then mounts only its own routers. A mild departure from "wiring lives in `app/main.py`"; see D-08. |
 
 ## Integration
 
 Imported by all three services and, in Phase 2, by `soc/` for the event schema. Depends only on
 third-party libraries — never on a service, never on `soc`, `kg` or `rag`. `http_client.py` depends
-on `events.py` and `logging.py`; nothing in this package depends on `http_client.py`.
+on `events.py` and `logging.py`; nothing in this package depends on `http_client.py`. `service.py`
+composes `config`, `logging`, `middleware`, `error_handlers`, `health` and `registry`; nothing in
+this package depends on `service.py`.
 
 Done when: a service can be started with nothing of its own but a router, and it already registers
 with Consul, serves `/health`, logs JSON with a correlation ID, and emits schema-valid events.
