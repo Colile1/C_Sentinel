@@ -10,6 +10,7 @@ Docker hosts them — separate containers, separate images, separate lifecycles.
 |------|----------------|
 | `docker-compose.yml` | The stack: Consul, three PostgreSQL containers, three services. Health checks and `depends_on: condition: service_healthy` so `up` reaches a working system unattended. Kong, Prometheus and Grafana join it at build steps 10 and 11 |
 | `Dockerfile.service` | The shared multi-stage build for a FastAPI service, selected by the `SERVICE_NAME` build argument. One file rather than three near-identical ones, per the DRY rule. Build context is the repository root, because every image needs `libs/` and `requirements.lock.txt` as well as its own `app/` |
+| `kong-entrypoint.sh` | Substitutes `$KONG_JWT_SECRET` into a rendered copy of `gateway/kong.yml` at container start, then execs Kong's own entrypoint. Exists because Kong 3.7 has no working way to pull a secret into a `jwt_secrets` credential in DB-less mode, and both forms that look like they do fail silently — see `DECISIONS.md` D-20 |
 | `.env.example` | Every environment variable with a safe placeholder: per-service database name, user and password (the `DATABASE_URL` is assembled from these three in `docker-compose.yml`, so no connection string is checked in), `JWT_SECRET`, token expiry, Consul address, log level, the resilience thresholds. Copied to `.env`, which is git-ignored; replace every `CHANGE_ME` before a real run |
 | `postgres/init/` | Per-service database initialisation SQL, one file per service database — `auth-db.sql`, `incident-db.sql`, `asset-db.sql` |
 
@@ -59,7 +60,7 @@ to Consul under its Compose service name so the health check and Kong both resol
 
 | Container | Image | Port | Notes |
 |-----------|-------|------|-------|
-| `kong` | kong:3 | 8000 proxy, 8081 admin | DB-less, mounts `gateway/kong.yml` read-only. Admin moved off Kong's default 8001 because `auth-service` owns that port for direct inspection |
+| `kong` | kong:3.7 | 8000 proxy, 8081 admin | DB-less, mounts `gateway/kong.yml` read-only. Admin moved off Kong's default 8001 because `auth-service` owns that port for direct inspection |
 | `consul` | hashicorp/consul | 8500 | UI enabled |
 | `auth-service` | built | 8001 | Own database, own image |
 | `incident-service` | built | 8002 | Own database, own image |
