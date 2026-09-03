@@ -13,6 +13,7 @@ Everything the marker reads and everything a future session needs that is not co
 | `report/` | The submitted document and the demo script |
 | `diagrams/` | Diagram sources and exports |
 | `evidence/` | Screenshots and captures taken *during* the build, for the report and the video |
+| `session-log.md` | A narrative record per session: what was done, why, and how it fits the project. Fuller than `PROGRESS.md`'s four latest-state fields; append, don't rewrite |
 
 `diagrams/` and `evidence/` hold artefacts rather than specifications and are documented by this
 README rather than each carrying their own.
