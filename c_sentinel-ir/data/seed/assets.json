@@ -1,0 +1,47 @@
+{
+  "_comment": "Loaded by scripts/seed_data.py through POST /api/v1/assets as the admin. Six assets across types and criticalities, including two CRITICAL ones, so reading a CRITICAL asset can be shown emitting ASSET_ACCESSED.",
+  "assets": [
+    {
+      "name": "core-auth-db",
+      "asset_type": "database",
+      "criticality": "CRITICAL",
+      "owner": "platform-team",
+      "location": "eu-west-1a"
+    },
+    {
+      "name": "payments-api",
+      "asset_type": "service",
+      "criticality": "CRITICAL",
+      "owner": "payments-team",
+      "location": "eu-west-1b"
+    },
+    {
+      "name": "edge-gateway-01",
+      "asset_type": "network-device",
+      "criticality": "HIGH",
+      "owner": "network-team",
+      "location": "eu-west-1a"
+    },
+    {
+      "name": "analyst-workstation-14",
+      "asset_type": "endpoint",
+      "criticality": "MEDIUM",
+      "owner": "soc-team",
+      "location": "office-jhb"
+    },
+    {
+      "name": "build-runner-03",
+      "asset_type": "server",
+      "criticality": "MEDIUM",
+      "owner": "platform-team",
+      "location": "eu-west-1c"
+    },
+    {
+      "name": "wiki-internal",
+      "asset_type": "service",
+      "criticality": "LOW",
+      "owner": "it-team",
+      "location": "office-jhb"
+    }
+  ]
+}

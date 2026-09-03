@@ -12,7 +12,8 @@ Built at build step 5.
 
 | File | Responsibility |
 |------|----------------|
-| `app/main.py` | Calls `create_service_app` from `libs/common` (D-08) for all shared wiring, mounts the auth router, and passes `init_database` as its startup hook. Six lines of substance |
+| `app/main.py` | Calls `create_service_app` from `libs/common` (D-08) for all shared wiring, mounts the auth router, and passes a startup hook that runs `init_database` then `ensure_bootstrap_admin` |
+| `app/services/bootstrap.py` | `ensure_bootstrap_admin()` — at startup, creates one admin from `BOOTSTRAP_ADMIN_USERNAME` / `BOOTSTRAP_ADMIN_PASSWORD` if both are set, idempotently. Closes the chicken-and-egg gap: `POST /auth/users` needs an admin token, so the first admin cannot come through the API (D-23). A no-op when unconfigured |
 | `app/database.py` | The one engine and session factory for `auth_db`, the `/health` reachability probe, and `init_database` which creates the tables at startup |
 | `app/models.py` | `User` — id, username, email, `password_hash`, role, `is_active`, `created_at` |
 | `app/schemas.py` | `LoginRequest`, `TokenResponse`, `UserCreate`, `UserRead`, `VerifyResponse` |
@@ -28,6 +29,7 @@ Built at build step 5.
 | `tests/test_auth_service.py` | A failed login raises `AuthenticationError` **and** emits exactly one `AUTH_FAILED` event carrying the username, source IP and correlation ID; all three failure causes are indistinguishable to the client (D-11) |
 | `tests/test_user_repository.py` | Lookup, ordering, and the `ConflictError` a duplicate username raises, against real SQL on SQLite |
 | `tests/test_auth_router.py` | The HTTP contract: 401 shape, the 403 admin guard, and no response ever carrying a password hash |
+| `tests/test_bootstrap.py` | `ensure_bootstrap_admin` creates the admin when configured, is idempotent across restarts, and does nothing when either variable is blank |
 
 ## Integration
 

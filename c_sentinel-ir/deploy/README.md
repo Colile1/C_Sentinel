@@ -11,17 +11,23 @@ Docker hosts them — separate containers, separate images, separate lifecycles.
 | `docker-compose.yml` | The stack: Consul, three PostgreSQL containers, three services. Health checks and `depends_on: condition: service_healthy` so `up` reaches a working system unattended. Kong, Prometheus and Grafana join it at build steps 10 and 11 |
 | `Dockerfile.service` | The shared multi-stage build for a FastAPI service, selected by the `SERVICE_NAME` build argument. One file rather than three near-identical ones, per the DRY rule. Build context is the repository root, because every image needs `libs/` and `requirements.lock.txt` as well as its own `app/` |
 | `kong-entrypoint.sh` | Substitutes `$KONG_JWT_SECRET` into a rendered copy of `gateway/kong.yml` at container start, then execs Kong's own entrypoint. Exists because Kong 3.7 has no working way to pull a secret into a `jwt_secrets` credential in DB-less mode, and both forms that look like they do fail silently — see `DECISIONS.md` D-20 |
-| `.env.example` | Every environment variable with a safe placeholder: per-service database name, user and password (the `DATABASE_URL` is assembled from these three in `docker-compose.yml`, so no connection string is checked in), `JWT_SECRET`, token expiry, Consul address, log level, the resilience thresholds. Copied to `.env`, which is git-ignored; replace every `CHANGE_ME` before a real run |
+| `.env.example` | Every environment variable with a safe placeholder: per-service database name, user and password (the `DATABASE_URL` is assembled from these three in `docker-compose.yml`, so no connection string is checked in), `JWT_SECRET`, token expiry, Consul address, log level, the resilience thresholds, the Grafana admin password, and `BOOTSTRAP_ADMIN_USERNAME` / `BOOTSTRAP_ADMIN_PASSWORD` — the one admin auth-service seeds at startup so `scripts/seed_data.py` has an account to authenticate as (D-23). Copied to `.env`, which is git-ignored; replace every `CHANGE_ME` before a real run |
 | `postgres/init/` | Per-service database initialisation SQL, one file per service database — `auth-db.sql`, `incident-db.sql`, `asset-db.sql` |
 
 ## Running it
 
 ```
-cp deploy/.env.example deploy/.env          # then replace every CHANGE_ME (JWT_SECRET, the *_DB_PASSWORD values)
+cp deploy/.env.example deploy/.env          # then replace every CHANGE_ME (JWT_SECRET, the *_DB_PASSWORD values, BOOTSTRAP_ADMIN_PASSWORD)
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml build
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml ps
+python scripts/seed_data.py                 # demo users and assets, through the gateway
+python client/demo_workflow.py              # the marked business workflow
 ```
+
+`scripts/seed_data.py` and the clients read `BOOTSTRAP_ADMIN_USERNAME` / `BOOTSTRAP_ADMIN_PASSWORD`
+from the environment (defaulting to `admin` / a placeholder), so export the same values you put in
+`deploy/.env`, or run them with `--env-file` semantics, before seeding.
 
 ### Build performance and the contended-connection failure
 

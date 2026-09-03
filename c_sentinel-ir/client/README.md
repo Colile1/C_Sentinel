@@ -8,13 +8,19 @@ Every request it makes goes to `http://localhost:8000`, the gateway. It never ca
 directly. That is deliberate: the endpoint addresses printed by this client are the evidence the
 submission sheet asks for.
 
-## Planned files
+## Files
+
+Built at build step 12.
 
 | File | Responsibility |
 |------|----------------|
-| `demo_workflow.py` | `main()` — runs the complete marked workflow end to end and prints each step as `Description: value`, including the full URL called and the correlation ID returned. Login, list assets, create an incident against an asset, read it back, escalate its severity |
-| `api_client.py` | `ApiClient` — a thin wrapper over httpx holding the base URL and the bearer token. One method per endpoint. No business logic, no retry (resilience is a server-side concern and belongs to `libs/common/http_client.py`) |
+| `demo_workflow.py` | `main()` — runs the complete marked workflow end to end and prints each step as `Description: value`, including the full URL called and the correlation ID returned. Login, list assets, create an incident against an asset, read it back, escalate its severity. One correlation ID for the whole run |
+| `api_client.py` | `ApiClient` — a thin wrapper over httpx holding the base URL and the bearer token. One method per endpoint. No business logic, no retry (resilience is a server-side concern and belongs to `libs/common/http_client.py`). Reads `GATEWAY_URL` from the environment, defaulting to `http://localhost:8000/api/v1` |
 | `failed_login_demo.py` | Drives five consecutive failed logins, then a successful one. Harmless in Phase 1 where it demonstrates auth event capture; in Phase 2 it is the attack that fires detection Rule 1 |
+
+The admin username and password come from `BOOTSTRAP_ADMIN_USERNAME` / `BOOTSTRAP_ADMIN_PASSWORD`
+in the environment (defaulting to `admin` and a placeholder), matching what auth-service seeds at
+startup (D-23) — no credential is written into these files.
 
 ## Integration
 

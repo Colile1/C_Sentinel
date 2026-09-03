@@ -1,0 +1,17 @@
+{
+  "_comment": "Loaded by scripts/seed_data.py through POST /api/v1/auth/users, as the bootstrap admin. The admin account itself is created by auth-service at startup from BOOTSTRAP_ADMIN_* and is NOT listed here. Passwords are demo values; see deploy/.env.example.",
+  "users": [
+    {
+      "username": "analyst1",
+      "email": "analyst1@sentinel.local",
+      "password": "analyst1-password",
+      "role": "analyst"
+    },
+    {
+      "username": "analyst2",
+      "email": "analyst2@sentinel.local",
+      "password": "analyst2-password",
+      "role": "analyst"
+    }
+  ]
+}

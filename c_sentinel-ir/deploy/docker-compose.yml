@@ -161,6 +161,11 @@ services:
       # Assembled from the DB parts so a password literal lives in exactly one
       # variable (AUTH_DB_PASSWORD), never in a checked-in connection string.
       DATABASE_URL: postgresql+psycopg://${AUTH_DB_USER:-auth_service}:${AUTH_DB_PASSWORD:?set AUTH_DB_PASSWORD in deploy/.env}@auth-db:5432/${AUTH_DB_NAME:-auth_db}
+      # The one admin auth-service seeds at startup so scripts/seed_data.py has
+      # an account to log in as and create every other user through the API
+      # (D-23). Only auth-service reads these.
+      BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-admin}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?set BOOTSTRAP_ADMIN_PASSWORD in deploy/.env}
     ports:
       - "127.0.0.1:8001:8001"
     depends_on:
