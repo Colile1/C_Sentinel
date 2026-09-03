@@ -18,8 +18,25 @@ request body, response body, and status codes.
   by nothing else: `{"error": "<CODE>", "message": "<one sentence>", "details": {...}}`. `details`
   is an object, empty when there is nothing structured to add, and carries the offending field on a
   validation failure.
-- Every request may carry `X-Correlation-ID`; every response returns one.
+- Every request may carry `X-Correlation-ID`; every response returns one. When the client does not
+  send one, the gateway's `correlation-id` plugin mints it; when the client does, it is passed
+  through unchanged and echoed back, so the client can quote the id it chose.
 - Protected endpoints require `Authorization: Bearer <jwt>`.
+
+## What the gateway enforces before a service is reached
+
+Everything below `/api/v1` except `POST /api/v1/auth/login` requires a valid token, and the check
+happens at Kong (`gateway/kong.yml`), not in the service. A missing, malformed, expired or tampered
+token returns Kong's own body — note that it is *not* the services' error shape, because no service
+was involved:
+
+```json
+{ "message": "Unauthorized" }
+```
+
+Exceeding 60 requests per minute returns `429` with the same style of body. Every response, including
+these, carries `X-Correlation-ID` and the `RateLimit-*` headers, so a rejected request is still
+traceable in the event stream.
 
 ## auth-service
 

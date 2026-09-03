@@ -1,0 +1,181 @@
+# gateway/kong.yml - the declarative Kong configuration. The single source of
+# gateway truth, loaded DB-less at container start from a read-only mount.
+#
+# Kong is the only public entry point: `http://localhost:8000`. The service
+# ports 8001-8003 are published for inspection and are not the public API.
+#
+# Reading order, because Kong's model is not obvious: a `service` is an
+# upstream, a `route` is a way of reaching it, and a `plugin` attached to a
+# route applies only to that route. auth-service therefore appears as TWO
+# routes on ONE service - `auth-public` carries no jwt plugin so that login can
+# be reached without a token, `auth-protected` carries it so everything else
+# under /api/v1/auth cannot. That split is the whole reason this file is not
+# three services and three routes.
+#
+# What the marker is shown (gateway/README.md, build step 10):
+#   - every endpoint in docs/api.md answers on :8000;
+#   - no token to a protected route -> 401 raised HERE, upstream log silent;
+#   - over the rate limit -> 429;
+#   - X-Correlation-ID on the response of every request.
+#
+# Secrets: the signing key is NOT written here. `__JWT_SECRET__` below is a
+# placeholder that deploy/kong-entrypoint.sh replaces with $KONG_JWT_SECRET into
+# a temporary copy of this file before Kong starts, so the checked-in config
+# holds no key and the mount stays read-only.
+#
+# Two forms that look like they would do this do NOT work, and both fail
+# silently - Kong starts clean and then rejects every valid token with
+# "Invalid signature", which is the worst way to discover it:
+#   - `${{ env "..." }}` is decK's templating, not Kong's; DB-less Kong stores
+#     the literal string as the secret.
+#   - `{vault://env/kong-jwt-secret}` is a real Kong vault reference and
+#     resolves correctly under `kong vault get`, but `jwt_secrets.secret` is not
+#     a referenceable field in Kong 3.7, so the plugin still compares against the
+#     raw reference string.
+# Verified against kong:3.7 at build step 10 before this file was committed.
+#
+# Author: Colile
+
+_format_version: "3.0"
+_transform: true
+
+# --- upstream services ------------------------------------------------------
+# `host` is the Compose service name, which is also the address the service
+# advertises to Consul, so the gateway and the registry agree on one spelling.
+# Paths are NOT rewritten: the services already mount their routers under
+# /api/v1/..., so what the client asks for is what the upstream receives.
+
+services:
+
+  - name: auth-service
+    host: auth-service
+    port: 8001
+    protocol: http
+    retries: 3
+    connect_timeout: 3000
+    write_timeout: 10000
+    read_timeout: 10000
+    routes:
+
+      # Public. Login is the one endpoint that cannot require a token - it is
+      # what issues them. Declared BEFORE the protected route and with a longer,
+      # exact path so Kong's most-specific-prefix match picks it first.
+      - name: auth-login
+        paths:
+          - /api/v1/auth/login
+        strip_path: false
+        methods:
+          - POST
+
+      # Everything else under /api/v1/auth: verify, and the admin user routes.
+      # Protected by the jwt plugin attached below.
+      - name: auth-protected
+        paths:
+          - /api/v1/auth
+        strip_path: false
+
+  - name: incident-service
+    host: incident-service
+    port: 8002
+    protocol: http
+    retries: 3
+    connect_timeout: 3000
+    write_timeout: 10000
+    read_timeout: 10000
+    routes:
+      - name: incidents
+        paths:
+          - /api/v1/incidents
+        strip_path: false
+
+  - name: asset-service
+    host: asset-service
+    port: 8003
+    protocol: http
+    retries: 3
+    connect_timeout: 3000
+    write_timeout: 10000
+    read_timeout: 10000
+    routes:
+      - name: assets
+        paths:
+          - /api/v1/assets
+        strip_path: false
+
+# --- consumers --------------------------------------------------------------
+# Kong's jwt plugin does not accept a global shared secret: it reads the token's
+# `iss` claim, finds the jwt_secrets entry whose `key` equals it, and verifies
+# the signature with that entry's secret (D-10). So there is exactly one
+# consumer, and its credential key is the issuer string that
+# services/auth-service/app/services/token_service.py exports as TOKEN_ISSUER.
+# Those two strings must never be edited apart.
+#
+# The rate limit is attached to this consumer rather than globally, so it counts
+# authenticated callers, which is the abnormal-request-rate signal Phase 2's
+# Rule 3 reads.
+
+consumers:
+  - username: sentinel-ir-client
+    jwt_secrets:
+      - key: sentinel-ir-auth
+        algorithm: HS256
+        secret: __JWT_SECRET__
+
+# --- plugins ----------------------------------------------------------------
+
+plugins:
+
+  # Correlation ID, global: stamps X-Correlation-ID on every request that does
+  # not already carry one and echoes it on the response. `echo_downstream` is
+  # what makes the header visible to the client, which is how the demo proves
+  # one workflow threads three services' logs. The services' own middleware
+  # honours an inbound header and only mints an id when there is none, so the
+  # gateway's value wins end to end (libs/common/middleware.py).
+  - name: correlation-id
+    config:
+      header_name: X-Correlation-ID
+      generator: uuid#counter
+      echo_downstream: true
+
+  # JWT validation at the edge, on the protected routes only. A request without
+  # a valid token is refused with 401 here and never reaches a domain service -
+  # the upstream log staying silent is the evidence the gateway is doing work.
+  # `claims_to_verify: exp` makes Kong reject an expired token rather than
+  # leaving expiry to the service.
+  - name: jwt
+    route: auth-protected
+    config:
+      claims_to_verify:
+        - exp
+      key_claim_name: iss
+      secret_is_base64: false
+
+  - name: jwt
+    route: incidents
+    config:
+      claims_to_verify:
+        - exp
+      key_claim_name: iss
+      secret_is_base64: false
+
+  - name: jwt
+    route: assets
+    config:
+      claims_to_verify:
+        - exp
+      key_claim_name: iss
+      secret_is_base64: false
+
+  # Rate limiting, global so it also covers the unauthenticated login route -
+  # which is where a brute-force attempt actually lands, and what Phase 2's
+  # Rule 3 needs to see. Counters live in the Kong node's memory, which is what
+  # DB-less mode supports and is sufficient for a single-node demo stack.
+  # 60/minute is deliberately low enough to trip on camera with a short loop.
+  - name: rate-limiting
+    config:
+      minute: 60
+      hour: 1000
+      policy: local
+      limit_by: consumer
+      fault_tolerant: true
+      hide_client_headers: false

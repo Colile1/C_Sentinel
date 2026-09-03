@@ -1,11 +1,13 @@
 # deploy/docker-compose.yml - the whole Sentinel-IR stack in one file.
 #
 # `docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d`
-# from the repository root brings up: Consul, three PostgreSQL containers (one
-# per service, D-04), and the three FastAPI services, each its own image built
-# from deploy/Dockerfile.service with the repository root as build context.
+# from the repository root brings up: the Kong gateway, Consul, three PostgreSQL
+# containers (one per service, D-04), and the three FastAPI services, each its
+# own image built from deploy/Dockerfile.service with the repository root as
+# build context.
 #
-# Kong, Prometheus and Grafana join this file at build steps 10 and 11.
+# Kong is the only public entry point, on localhost:8000. Prometheus and Grafana
+# join this file at build step 11.
 #
 # Every service:
 #   - is built from the SAME Dockerfile, selected by the SERVICE_NAME build arg
@@ -49,6 +51,54 @@ services:
       timeout: 3s
       retries: 10
       start_period: 5s
+
+  # --- API gateway: the single public entry point ---------------------------
+  # DB-less: the whole configuration is gateway/kong.yml, mounted read-only, so
+  # a routing change needs a `docker compose restart kong` and never a rebuild.
+  #
+  # KONG_JWT_SECRET carries the same signing key the services get as JWT_SECRET.
+  # kong-entrypoint.sh substitutes it into a rendered copy of kong.yml at start,
+  # because Kong 3.7 has no working way to pull a secret into a jwt_secrets
+  # credential in DB-less mode - see the comment at the top of that script and
+  # of gateway/kong.yml. That is why KONG_DECLARATIVE_CONFIG is not set here:
+  # the entrypoint sets it to the rendered path.
+  #
+  # The admin API is on 8081, not Kong's default 8001, because auth-service owns
+  # 8001 for direct inspection (deploy/README.md), and is bound to 127.0.0.1.
+  kong:
+    image: kong:3.7
+    container_name: sentinel-kong
+    entrypoint: ["/usr/local/bin/kong-entrypoint.sh"]
+    command: ["kong", "docker-start"]
+    environment:
+      KONG_DATABASE: "off"
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+      KONG_ADMIN_LISTEN: 0.0.0.0:8081
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_LOG_LEVEL: ${KONG_LOG_LEVEL:-notice}
+      KONG_JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in deploy/.env}
+    volumes:
+      - ../gateway/kong.yml:/etc/kong/kong.yml:ro
+      - ./kong-entrypoint.sh:/usr/local/bin/kong-entrypoint.sh:ro
+    ports:
+      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:8081:8081"
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      incident-service:
+        condition: service_healthy
+      asset-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
 
   # --- databases: one container per service (D-04) -----------------------
   auth-db:
