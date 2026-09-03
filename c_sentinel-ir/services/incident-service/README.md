@@ -15,7 +15,7 @@ Direct port 8002. Its database is `incident_db`.
 | `app/models.py` | `Incident` — id, title, description, severity (LOW/MEDIUM/HIGH/CRITICAL), status (OPEN/TRIAGED/RESOLVED), `reported_by`, `asset_id`, `asset_name_snapshot`, `created_at`, `updated_at` |
 | `app/schemas.py` | `IncidentCreate`, `IncidentUpdate`, `IncidentRead`, `SeverityChange` |
 | `app/repositories/incident_repository.py` | `get`, `list(status=None, severity=None)`, `create`, `update`, `delete` |
-| `app/services/asset_gateway.py` | `fetch_asset(asset_id, correlation_id, settings) -> AssetSummary` — the **only** place `asset-service` is called. Its declared fallback returns an `AssetSummary` marked `available=False` so an incident can still be raised while the asset service is down. **Step 7 only calls it with a plain, timed-out `httpx.get`** — see the departure note below; step 8 wraps this exact call in `ResilientClient` for retry-with-backoff and the circuit breaker, without changing this module's public signature |
+| `app/services/asset_gateway.py` | `fetch_asset(asset_id, correlation_id, settings) -> AssetSummary` — the **only** place `asset-service` is called. Its declared fallback returns an `AssetSummary` marked `available=False` so an incident can still be raised while the asset service is down. Calls through `ResilientClient` (retry plus circuit breaker), holding one long-lived client per asset-service URL in `_client_for` — the breaker's failure count is the pattern's state, so a client rebuilt per call would never open |
 | `app/services/incident_service.py` | Business logic: creating an incident validates the asset through `asset_gateway`, snapshots the asset name, sets the initial status, and emits `INCIDENT_CREATED` — with `severity` carried onto the event, so Phase 2's "creation of a high-priority incident" signal comes free. Escalating to HIGH or CRITICAL emits `INCIDENT_ESCALATED` |
 | `app/routers/incident_router.py` | `GET /api/v1/incidents`, `GET /api/v1/incidents/{id}`, `POST /api/v1/incidents`, `PUT /api/v1/incidents/{id}`, `PATCH /api/v1/incidents/{id}/severity`, `DELETE /api/v1/incidents/{id}` |
 | `tests/test_skeleton.py` | The shared shell, built here for the first time: `/health`, `/health/live`, `/metrics`, correlation-id echo, the shared error shape |
@@ -33,13 +33,11 @@ bypasses the circuit breaker and voids the pattern claim.
 
 Depends on `libs/common` and `incident_db`. It never reads `asset_db`.
 
-**Departure from the original plan (build step 7):** `libs/common/http_client.py` does not exist
-until step 8, so `asset_gateway.fetch_asset` currently calls asset-service directly with `httpx.get`
-and a 3-second timeout, degrading to the same documented fallback a `ResilientClient` will use. This
-already satisfies step 7's own verification (CRUD plus a working severity workflow); step 8 replaces
-the call inside this one function with `ResilientClient` for retry-with-backoff and the breaker,
-without touching its callers. See `DECISIONS.md`.
+**The step 7 departure is closed.** `asset_gateway.fetch_asset` briefly called asset-service directly
+with `httpx.get` because `libs/common/http_client.py` was step 8's deliverable and did not yet exist
+(D-14). Step 8 built the client and replaced the call inside that one function; its public signature,
+its fallback and its callers are unchanged, exactly as the decision anticipated.
 
 Done when: the full CRUD passes; an incident can be created while `asset-service` is stopped, with
-the fallback recorded on the incident. From step 8, that failure also carries a `DEPENDENCY_FAILURE`
-event and the breaker's open/close events in the log.
+the fallback recorded on the incident, and that failure carries a `DEPENDENCY_FAILURE` event and the
+breaker's open/close events in the log. **Met at step 8.**

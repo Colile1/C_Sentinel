@@ -1,0 +1,8 @@
+Phase: asset-service is down
+Call 1: state=closed, elapsed_ms=53.6, result={'name': 'unknown', 'available': False}
+Call 2: state=closed, elapsed_ms=41.6, result={'name': 'unknown', 'available': False}
+Call 3: state=open, elapsed_ms=42.8, result={'name': 'unknown', 'available': False}
+Call 4: state=open, elapsed_ms=0.1, result={'name': 'unknown', 'available': False}
+Call 5: state=open, elapsed_ms=0.0, result={'name': 'unknown', 'available': False}
+Phase: asset-service restarted, waiting out the reset timeout
+Call 6: state=closed, elapsed_ms=4.1, result={'id': 1, 'name': 'web-01'}

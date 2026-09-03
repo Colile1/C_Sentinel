@@ -2,8 +2,12 @@
 test_asset_gateway.py - the one place incident-service calls asset-service.
 
 Uses httpx's `MockTransport` rather than a real socket, so these tests need no
-network and no running asset-service, while still exercising the real
-`httpx.get` call path `fetch_asset` makes.
+network and no running asset-service, while still exercising the real call path
+`fetch_asset` makes. From build step 8 that path runs through
+`common.http_client.ResilientClient`, so the transport is patched there; the
+retry and breaker behaviour itself is proven in `libs/common/tests/
+test_http_client.py`, and what these tests hold is this service's own contract:
+the summary it builds and the fallback it declares.
 
 Author: Colile
 """
@@ -15,9 +19,25 @@ import pytest
 
 from common.config import Settings
 
-from app.services.asset_gateway import fetch_asset
+from app.services.asset_gateway import _client_for, fetch_asset
 
 CORRELATION_ID = "corr-test0000001"
+
+
+@pytest.fixture(autouse=True)
+def _fresh_breaker() -> None:
+    """
+    Purpose: give each test its own `ResilientClient`, and therefore its own
+             circuit breaker. The client is cached for the life of the process
+             on purpose (that is what lets the breaker accumulate failures), so
+             without this a test that trips it would leak an open breaker into
+             every test after it.
+    Inputs:  none.
+    Output:  None.
+    """
+    _client_for.cache_clear()
+    yield
+    _client_for.cache_clear()
 
 
 def _settings_with_transport() -> Settings:
@@ -34,8 +54,9 @@ def _settings_with_transport() -> Settings:
 
 def _patch_transport(monkeypatch, handler) -> None:
     """
-    Purpose: make `httpx.get` inside `fetch_asset` run against a mock
-             transport instead of a real socket.
+    Purpose: make the `httpx.get` inside `ResilientClient` - which is what
+             `fetch_asset` now calls through - run against a mock transport
+             instead of a real socket.
     Inputs:  monkeypatch - pytest's fixture. handler - the mock transport's
              request handler.
     Output:  None.
@@ -47,7 +68,7 @@ def _patch_transport(monkeypatch, handler) -> None:
         with httpx.Client(transport=httpx.MockTransport(handler)) as test_client:
             return test_client.get(url, headers=headers, timeout=timeout)
 
-    monkeypatch.setattr("app.services.asset_gateway.httpx.get", _fake_get)
+    monkeypatch.setattr("common.http_client.httpx.get", _fake_get)
 
 
 def test_successful_lookup_returns_the_real_name(monkeypatch) -> None:

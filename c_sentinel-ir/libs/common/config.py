@@ -68,6 +68,16 @@ class Settings(BaseSettings):
         description="Only incident-service sets this. Read via ResilientClient only.",
     )
 
+    # Resilience — retry and circuit breaker, read by libs/common/http_client.py.
+    # Defaults are the demo-friendly values: the breaker opens after three failed
+    # requests and re-tests after fifteen seconds, both short enough to show on
+    # camera inside the ninety seconds docs/patterns.md budgets for the proof.
+    dependency_timeout_seconds: float = Field(default=3.0, gt=0)
+    retry_max_attempts: int = Field(default=3, ge=1)
+    retry_backoff_seconds: float = Field(default=0.2, gt=0)
+    circuit_fail_max: int = Field(default=3, ge=1)
+    circuit_reset_seconds: float = Field(default=15.0, gt=0)
+
     @field_validator("log_level")
     @classmethod
     def _validate_log_level(cls, value: str) -> str:
