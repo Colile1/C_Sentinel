@@ -6,8 +6,9 @@
 # own image built from deploy/Dockerfile.service with the repository root as
 # build context.
 #
-# Kong is the only public entry point, on localhost:8000. Prometheus and Grafana
-# join this file at build step 11.
+# Kong is the only public entry point, on localhost:8000. Prometheus (9090) and
+# Grafana (3001) scrape and chart the /metrics endpoints; neither is on the
+# request path and nothing in the services depends on them.
 #
 # Every service:
 #   - is built from the SAME Dockerfile, selected by the SERVICE_NAME build arg
@@ -236,7 +237,63 @@ services:
       retries: 6
       start_period: 15s
 
+  # --- observability: metrics scrape and dashboards (step 11) --------------
+  # Prometheus scrapes /metrics on the three services and the Kong admin
+  # listener; Grafana reads Prometheus only. Both bound to 127.0.0.1. Neither
+  # is a dependency of any service - the stack is healthy without them.
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: sentinel-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=6h
+      - --web.enable-lifecycle
+    volumes:
+      - ../observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: sentinel-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in deploy/.env}
+      # Anonymous viewer so the demo opens straight onto the dashboard; the
+      # admin login still exists for any change.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_DEFAULT_THEME: light
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/sentinel.json
+      # Grafana still listens on 3000 inside the container; only the published
+      # host port moves - 3000 is a common dev-server port and is often taken.
+      GF_SERVER_HTTP_PORT: "3000"
+    volumes:
+      - ../observability/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+      - ../observability/grafana/dashboards/dashboard-provider.yml:/etc/grafana/provisioning/dashboards/dashboard-provider.yml:ro
+      - ../observability/grafana/dashboards/sentinel.json:/var/lib/grafana/dashboards/sentinel.json:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3001:3000"
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
 volumes:
   auth-db-data:
   incident-db-data:
   asset-db-data:
+  prometheus-data:
+  grafana-data:

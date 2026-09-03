@@ -1,0 +1,22 @@
+# observability/grafana/dashboards/dashboard-provider.yml - tells Grafana to
+# load every dashboard JSON in this folder at startup, so sentinel.json is
+# present without an import step and survives a container rebuild.
+#
+# Loaded from /etc/grafana/provisioning/dashboards by the mount in
+# docker-compose.yml; the JSON itself is mounted at the path below.
+#
+# Author: Colile
+
+apiVersion: 1
+
+providers:
+  - name: sentinel-ir
+    orgId: 1
+    folder: ""
+    type: file
+    disableDeletion: true
+    editable: false
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

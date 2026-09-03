@@ -1,0 +1,53 @@
+Step 11 - Prometheus, Grafana, centralised logging - verification
+Captured: 2026-09-03T18:21:38Z
+
+=== docker compose ps ===
+NAME                        STATUS
+sentinel-asset-db           Up 11 minutes (healthy)
+sentinel-asset-service      Up 11 minutes (healthy)
+sentinel-auth-db            Up 11 minutes (healthy)
+sentinel-auth-service       Up 11 minutes (healthy)
+sentinel-consul             Up 11 minutes (healthy)
+sentinel-grafana            Up 2 minutes (healthy)
+sentinel-incident-db        Up 11 minutes (healthy)
+sentinel-incident-service   Up 11 minutes (healthy)
+sentinel-kong               Up 11 minutes (healthy)
+sentinel-prometheus         Up 11 minutes (healthy)
+
+=== Prometheus targets (localhost:9090/api/v1/targets) ===
+  asset-service      http://asset-service:8003/metrics up
+  auth-service       http://auth-service:8001/metrics up
+  incident-service   http://incident-service:8002/metrics up
+  kong               http://kong:8081/metrics         up
+
+=== Grafana provisioning (localhost:3001) ===
+  datasource: Prometheus prometheus http://prometheus:9090 default=True
+  dashboard: Sentinel-IR overview (sentinel-ir-overview)
+
+=== Five dashboard panel queries, run through Grafana's datasource proxy ===
+  - Request rate per service:
+      asset-service = 0.411
+      incident-service = 0.259
+      auth-service = 0.275
+  - Failed requests (gateway 4xx):
+      assets = 0.0
+      incidents = 0.056
+  - Response time p95:
+      auth-service = 0.095
+      incident-service = 0.095
+      asset-service = 0.095
+  - Records created:
+      assets = 6.961
+      incidents = 0.0
+  - Authentication failures:
+      total = 24.908
+
+=== Kong prometheus plugin: /metrics on the admin listener ===
+  kong_http_requests_total{service="asset-service",route="assets",code="200",source="service",workspace="default",consumer=""} 13
+  kong_http_requests_total{service="asset-service",route="assets",code="201",source="service",workspace="default",consumer=""} 15
+  kong_http_requests_total{service="asset-service",route="assets",code="401",source="kong",workspace="default",consumer=""} 11
+  kong_http_requests_total{service="asset-service",route="assets",code="422",source="service",workspace="default",consumer=""} 4
+  kong_http_requests_total{service="auth-service",route="auth-login",code="401",source="service",workspace="default",consumer=""} 69
+  kong_http_requests_total{service="incident-service",route="incidents",code="201",source="service",workspace="default",consumer=""} 4
+  kong_http_requests_total{service="incident-service",route="incidents",code="401",source="kong",workspace="default",consumer=""} 27
+  kong_http_requests_total{service="incident-service",route="incidents",code="422",source="service",workspace="default",consumer=""} 3

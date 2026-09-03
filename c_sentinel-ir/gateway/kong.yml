@@ -166,6 +166,18 @@ plugins:
       key_claim_name: iss
       secret_is_base64: false
 
+  # Prometheus metrics, global. Kong then serves an exposition page on its Admin
+  # API listener at :8081/metrics - per-route request counts, status codes and
+  # upstream latency - which observability/prometheus/prometheus.yml scrapes as
+  # the `kong` job. Adds gateway-side visibility to the three services' own
+  # /metrics; nothing depends on it.
+  - name: prometheus
+    config:
+      status_code_metrics: true
+      latency_metrics: true
+      bandwidth_metrics: false
+      upstream_health_metrics: false
+
   # Rate limiting, global so it also covers the unauthenticated login route -
   # which is where a brute-force attempt actually lands, and what Phase 2's
   # Rule 3 needs to see. Counters live in the Kong node's memory, which is what
