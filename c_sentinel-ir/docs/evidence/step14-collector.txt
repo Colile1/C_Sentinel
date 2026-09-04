@@ -1,0 +1,28 @@
+# Step 14 - SOC event collector, live evidence
+# Generated 2026-09-04T09:25:20Z by: python -m soc.collector.main
+# (default source: docker compose -f deploy/docker-compose.yml logs)
+
+Events collected: 1521
+Distinct services: 3 (asset-service, auth-service, incident-service)
+Distinct correlation IDs: 54
+Event types seen: ASSET_ACCESSED, AUTH_FAILED, AUTH_SUCCESS, CIRCUIT_CLOSED, CIRCUIT_OPENED, DEPENDENCY_FAILURE, INCIDENT_CREATED, INCIDENT_ESCALATED, REQUEST_COMPLETED, REQUEST_RECEIVED
+
+# --- one workflow, queried by correlation ID ---
+# picking the first correlation ID that spans all three services:
+correlationId: corr-45bff1ec63154f48
+  2026-09-04T04:55:44Z  auth-service      REQUEST_RECEIVED      100  Request received for /api/v1/auth/login
+  2026-09-04T04:55:44Z  auth-service      AUTH_SUCCESS          200  User admin authenticated successfully.
+  2026-09-04T04:55:44Z  auth-service      REQUEST_COMPLETED     200  Request completed for /api/v1/auth/login with 200
+  2026-09-04T04:55:44Z  asset-service     REQUEST_RECEIVED      100  Request received for /api/v1/assets
+  2026-09-04T04:55:44Z  asset-service     REQUEST_COMPLETED     200  Request completed for /api/v1/assets with 200
+  2026-09-04T04:55:46Z  incident-service  REQUEST_RECEIVED      100  Request received for /api/v1/incidents
+  2026-09-04T04:55:46Z  incident-service  INCIDENT_CREATED      201  Incident 1 created with severity MEDIUM.
+  2026-09-04T04:55:46Z  incident-service  REQUEST_COMPLETED     201  Request completed for /api/v1/incidents with 201
+  2026-09-04T04:55:46Z  incident-service  REQUEST_RECEIVED      100  Request received for /api/v1/incidents/1
+  2026-09-04T04:55:46Z  incident-service  REQUEST_COMPLETED     200  Request completed for /api/v1/incidents/1 with 200
+  2026-09-04T04:55:46Z  incident-service  REQUEST_RECEIVED      100  Request received for /api/v1/incidents/1/severity
+  2026-09-04T04:55:46Z  incident-service  INCIDENT_ESCALATED    200  Incident 1 escalated from MEDIUM to HIGH.
+  2026-09-04T04:55:46Z  incident-service  REQUEST_COMPLETED     200  Request completed for /api/v1/incidents/1/severity with 200
+  2026-09-04T04:55:46Z  asset-service     REQUEST_RECEIVED      100  Request received for /api/v1/assets/1
+  2026-09-04T04:55:46Z  asset-service     ASSET_ACCESSED        200  Critical asset 'core-auth-db' was read.
+  2026-09-04T04:55:46Z  asset-service     REQUEST_COMPLETED     200  Request completed for /api/v1/assets/1 with 200
