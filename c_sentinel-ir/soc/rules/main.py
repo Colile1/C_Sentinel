@@ -22,10 +22,32 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from soc.alert_service.dependencies import get_alert_store
 from soc.alert_service.models import Alert
 from soc.collector.main import build_store, select_source
 from soc.collector.store import EventStore, parse_timestamp
 from soc.rules.catalogue import all_rules, evaluate_all
+
+
+def persist_alerts(alerts: list[Alert], store: EventStore) -> int:
+    """
+    Purpose: hand every raised alert to the process-wide `AlertStore` the alert
+             API serves from, and confirm each one's `relatedEvents` resolve to
+             events actually in the collector's store - the step-16 "done when".
+    Inputs:  alerts - the alerts the rules raised; store - the populated event
+             store they were raised from.
+    Output:  the number of alerts stored.
+    Raises:  `ValueError` if an alert cites an event id the store does not hold,
+             which would mean a rule built evidence that does not exist.
+    """
+    known_ids = {event.event_id for event in store.all_events()}
+    for alert in alerts:
+        dangling = set(alert.related_events) - known_ids
+        if dangling:
+            raise ValueError(
+                f"alert {alert.alert_id} cites unknown event ids {sorted(dangling)}"
+            )
+    return get_alert_store().extend(alerts)
 
 
 def latest_event_time(store: EventStore) -> datetime | None:
@@ -144,9 +166,15 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     alerts = evaluate_all(store, now)
+    try:
+        stored = persist_alerts(alerts, store)
+    except ValueError as exc:
+        print(f"Detection failed: {exc}", file=sys.stderr)
+        return 1
     print(f"Events evaluated: {len(store)}")
     print(f"Evaluation moment: {now.strftime('%Y-%m-%dT%H:%M:%SZ')}")
     print(f"Alerts raised: {len(alerts)}")
+    print(f"Alerts stored: {stored} (every related event resolves)")
     for alert in alerts:
         _print_alert(alert)
     return 0
