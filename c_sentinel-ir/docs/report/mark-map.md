@@ -18,9 +18,9 @@ as the last check before uploading. **A row with an empty column is a mark not y
 
 | Item | Where it comes from | Done |
 |------|--------------------|------|
-| Code zip — hand-written source and deployment files only | `services/`, `libs/`, `gateway/kong.yml`, `deploy/`, `client/`, `scripts/` | ☐ |
-| Document (PDF) | `docs/report/deliverable1.md` | ☐ |
-| Demo video, 8-10 minutes | Recorded against `docs/report/demo-script.md` | ☐ |
+| Code zip — hand-written source and deployment files only | `services/`, `libs/`, `gateway/kong.yml`, `deploy/`, `client/`, `scripts/` | ☑ (`docs/evidence/sentinel-ir-deliverable1-code.zip`, `scripts/build_submission_zip.py`) |
+| Document (PDF) | `docs/report/deliverable1.md` | ☑ draft written; export to PDF before upload |
+| Demo video, 8-10 minutes | Recorded against `docs/report/demo-script.md` | ☐ not yet recorded |
 | All three uploaded to Dropbox | | ☐ |
 
 ## The two things most likely to cost marks
