@@ -43,12 +43,21 @@ def test_login_is_reachable_without_a_token(anon_client):
     response = anon_client.post(
         "/auth/login", json={"username": "nobody", "password": "wrong"}
     )
-    assert response.status_code != 401
-    assert response.status_code in (400, 401, 422) or response.status_code == 200
-    # It is a real auth failure from the service (401 with the service shape) or
-    # a validation error - never a gateway 401.
+    # A 401 here is expected and correct - the credentials are deliberately
+    # wrong. What must NOT happen is Kong refusing the request itself, which
+    # would mean the jwt plugin had leaked onto the public login route (D-21).
+    # The discriminator is the body shape, exactly as the test above uses it:
+    # Kong sends {"message": ...} with no "error" key; the services send
+    # {"error", "message", "details"}. Asserting `!= 401` instead would reject
+    # auth-service's own legitimate rejection and can never pass.
+    assert response.status_code in (200, 400, 401, 422)
+    if response.status_code == 401:
+        assert "error" in response.json(), (
+            "login was refused by the gateway, not by auth-service"
+        )
 
 
+@pytest.mark.rate_limiting
 def test_rate_limit_returns_429(anon_client):
     """
     Purpose: exceeding the configured rate limit returns 429 within a short

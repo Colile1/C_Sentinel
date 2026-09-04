@@ -28,9 +28,13 @@ COMPOSE_FILE = "deploy/docker-compose.yml"
 ENV_FILE = "deploy/.env"
 CONSUL_URL = os.environ.get("CONSUL_URL", "http://localhost:8500")
 PROMETHEUS_URL = os.environ.get("PROMETHEUS_URL", "http://localhost:9090")
-GATEWAY_HEALTH_URL = os.environ.get(
-    "GATEWAY_HEALTH_URL", "http://localhost:8000/api/v1/health"
-)
+GATEWAY_URL = os.environ.get("GATEWAY_URL", "http://localhost:8000/api/v1")
+# There is deliberately no /api/v1/health route in gateway/kong.yml - Kong routes
+# only login, the protected auth prefix, incidents and assets, so an unrouted
+# path correctly 404s and proves nothing. The reachable no-token probe is the
+# login route (D-21): it is the one route with no jwt plugin, so a rejected
+# credential comes back as auth-service's own 401, which proves Kong resolved
+# the upstream rather than answering by itself.
 EXPECTED_SERVICES = ("auth-service", "incident-service", "asset-service")
 
 
@@ -130,17 +134,35 @@ def _check_prometheus() -> bool:
 
 def _check_gateway() -> bool:
     """
-    Purpose: the gateway answers on its public port.
+    Purpose: the gateway is up AND actually routing to its upstreams.
     Inputs:  none.
-    Output:  True when GET /api/v1/health through Kong returns a 2xx.
+    Output:  True when the login route reaches auth-service and a protected
+             route is refused by Kong's own jwt plugin.
     """
     try:
-        response = httpx.get(GATEWAY_HEALTH_URL, timeout=5)
+        login = httpx.post(
+            f"{GATEWAY_URL}/auth/login",
+            json={"username": "__preflight__", "password": "__preflight__"},
+            timeout=5,
+        )
+        protected = httpx.get(f"{GATEWAY_URL}/assets", timeout=5)
     except httpx.HTTPError as exc:
         _line("Gateway", f"unreachable: {exc}")
         return False
-    _line("Gateway /api/v1/health", response.status_code)
-    return response.status_code < 300
+
+    # auth-service answers a bad credential with the project's own error shape,
+    # {"error", "message", "details"}; Kong refusing a request by itself sends
+    # only {"message": ...}. The "error" key is therefore the discriminator, and
+    # checking it is what makes this a routing proof, not just a liveness ping.
+    routed = login.status_code == 401 and "error" in login.json()
+    _line("Gateway POST /auth/login (routed to auth-service)", login.status_code)
+    _line("Gateway GET /assets (no token, refused by Kong)", protected.status_code)
+    _line("Gateway X-Correlation-ID present", "X-Correlation-ID" in protected.headers)
+    return (
+        routed
+        and protected.status_code == 401
+        and "X-Correlation-ID" in protected.headers
+    )
 
 
 def main() -> int:

@@ -63,7 +63,10 @@ def test_one_correlation_id_appears_in_all_three_service_logs(
     assert created.status_code == 201, created.text
 
     entries = _log_lines_with(compose, correlation_id)
-    services_seen = {entry.get("service") for entry in entries}
+    # The JSON log formatter emits `serviceName` (libs/common/logging.py), not
+    # `service`. Reading the wrong key makes every entry look unattributed, so
+    # all three services report as missing even when the id is in every log.
+    services_seen = {entry.get("serviceName") for entry in entries}
     missing = [s for s in SERVICES if s not in services_seen]
     assert not missing, (
         f"correlation id {correlation_id} missing from: {missing}; "
