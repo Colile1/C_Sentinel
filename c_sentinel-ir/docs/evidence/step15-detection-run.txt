@@ -1,0 +1,98 @@
+# Step 15 evidence - the detection rules
+# Author: Colile
+#
+# Regenerate:
+#   python scripts/capture_attack_evidence.py
+#   python -m soc.rules.main --file docs/evidence/step15-attack-events.jsonl
+#   python -m soc.rules.main --file docs/evidence/step12-correlated-logs.jsonl
+
+=== The rule catalogue ===
+
+Rule: Multiple Failed Logins
+Purpose: Detect a brute-force or credential-stuffing attempt against the authentication endpoint before an account is compromised.
+Input events: AUTH_FAILED
+Severity: HIGH
+Recommended action: Temporarily block the source IP at the gateway and verify whether the targeted account is compromised; force a password reset if it is.
+
+Rule: Unauthorised Endpoint Access
+Purpose: Detect a caller probing endpoints outside its authorisation - reconnaissance, or a stolen token being tested for reach.
+Input events: UNAUTHORISED_ACCESS, REQUEST_COMPLETED
+Severity: MEDIUM
+Recommended action: Review the subject's role assignment, audit the endpoints it was refused on, and revoke the token if the access pattern is not explainable by a legitimate client.
+
+Rule: Abnormal Request Rate
+Purpose: Detect a possible denial-of-service attempt, runaway client or automated scan driving request volume far above the working rate.
+Input events: RATE_LIMIT_EXCEEDED, REQUEST_RECEIVED
+Severity: HIGH
+Recommended action: Rate-limit or block the source address at the gateway, then check upstream capacity and confirm the affected services recovered.
+
+Rule: Service Failure
+Purpose: Detect a service losing a dependency or returning server errors, so the outage is investigated before it reaches every caller.
+Input events: CIRCUIT_OPENED, DEPENDENCY_FAILURE, SERVICE_ERROR
+Severity: HIGH
+Recommended action: Check the health of the failing dependency and the circuit breaker's state, confirm the documented fallback is being served, and restart the dependency if it is down.
+
+=== Firing: the scripted attack ===
+Events evaluated: 22
+Evaluation moment: 2026-09-04T12:03:48Z
+Alerts raised: 5
+
+Alert ID: alt-21ad2a9f95ef
+Rule: Multiple Failed Logins
+Severity: HIGH
+Status: OPEN
+Description: 6 failed logins for user 'analyst-1' within 5 minutes, from 1 source address.
+Affected service: auth-service
+Affected user: analyst-1
+Affected entity: login-endpoint
+Related events: 6
+Recommended action: Temporarily block the source IP at the gateway and verify whether the targeted account is compromised; force a password reset if it is.
+
+Alert ID: alt-0892c41042f4
+Rule: Multiple Failed Logins
+Severity: HIGH
+Status: OPEN
+Description: 6 failed logins from 203.0.113.9 within 5 minutes, against 1 username.
+Affected service: auth-service
+Affected user: analyst-1
+Affected entity: login-endpoint
+Related events: 6
+Recommended action: Temporarily block the source IP at the gateway and verify whether the targeted account is compromised; force a password reset if it is.
+
+Alert ID: alt-fecaf50ed69f
+Rule: Unauthorised Endpoint Access
+Severity: HIGH
+Status: OPEN
+Description: 3 unauthorised requests from analyst-1 within 10 minutes across 3 endpoints including the privileged route /api/v1/auth/users.
+Affected service: auth-service
+Affected user: analyst-1
+Affected entity: /api/v1/auth/users
+Related events: 3
+Recommended action: Review the subject's role assignment, audit the endpoints it was refused on, and revoke the token if the access pattern is not explainable by a legitimate client.
+
+Alert ID: alt-5d8bccc30bad
+Rule: Abnormal Request Rate
+Severity: HIGH
+Status: OPEN
+Description: Abnormal request rate from 203.0.113.9: 8 requests refused by the gateway's rate limit, affecting api-gateway.
+Affected service: api-gateway
+Affected user: analyst-1
+Affected entity: 203.0.113.9
+Related events: 8
+Recommended action: Rate-limit or block the source address at the gateway, then check upstream capacity and confirm the affected services recovered.
+
+Alert ID: alt-f282b7f7bf3f
+Rule: Service Failure
+Severity: HIGH
+Status: OPEN
+Description: incident-service is failing: its circuit breaker opened and 3 dependency or server errors within 5 minutes.
+Affected service: incident-service
+Affected user: not attributed
+Affected entity: asset-service
+Related events: 4
+Recommended action: Check the health of the failing dependency and the circuit breaker's state, confirm the documented fallback is being served, and restart the dependency if it is down.
+
+=== Silent: the real step-12 workflow capture off the running stack ===
+Events evaluated: 16
+Evaluation moment: 2026-09-04T05:05:19Z
+Alerts raised: 0
