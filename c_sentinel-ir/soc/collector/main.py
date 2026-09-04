@@ -74,10 +74,12 @@ def _lines_from_docker() -> Iterator[str]:
     yield from completed.stdout.splitlines()
 
 
-def _select_source(args: argparse.Namespace) -> Iterator[str]:
+def select_source(args: argparse.Namespace) -> Iterator[str]:
     """
-    Purpose: pick the line source from the parsed arguments.
-    Inputs:  args - the parsed command line.
+    Purpose: pick the line source from the parsed arguments. Public because
+             `soc.rules.main` takes the same `--file` / `--stdin` / docker
+             options and must resolve them identically.
+    Inputs:  args - the parsed command line, carrying `file` and `stdin`.
     Output:  an iterator of raw log lines.
     """
     if args.file is not None:
@@ -149,7 +151,7 @@ def main(argv: list[str] | None = None) -> int:
     """
     args = _parse_args(argv)
     try:
-        store = build_store(_select_source(args))
+        store = build_store(select_source(args))
     except (RuntimeError, OSError) as exc:
         print(f"Collection failed: {exc}", file=sys.stderr)
         return 1

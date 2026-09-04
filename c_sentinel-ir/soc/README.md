@@ -11,7 +11,7 @@ folder buildable.
 |--------|---------|
 | `collector/` | Reads the event stream and stores it queryably |
 | `rules/` | The detection rules, one file per rule |
-| `alert-service/` | The alert model, store and API |
+| `alert_service/` | The alert model, store and API. Underscore, not hyphen — `soc` is one importable package (D-28) |
 
 ## The required event sources
 
