@@ -144,6 +144,72 @@ Admin only. `200` with the array above, oldest first. `403` for a non-admin.
 | PATCH | `/incidents/{id}/severity` | bearer | Change severity — emits an escalation event |
 | DELETE | `/incidents/{id}` | bearer, admin | Delete an incident |
 
+Built at build steps 7 and 8. Paths below are shown without the `/api/v1` prefix.
+
+### POST /api/v1/incidents
+
+Request:
+
+```json
+{
+  "title": "Suspicious login pattern on core-auth-db",
+  "description": "Five failed logins for the same account inside one minute.",
+  "severity": "MEDIUM",
+  "reported_by": "analyst1",
+  "asset_id": 1
+}
+```
+
+`201` — `asset_name_snapshot` is fetched from asset-service through
+`libs/common/http_client.py` at creation time and stored, not looked up again on every read:
+
+```json
+{
+  "id": 20,
+  "title": "Suspicious login pattern on core-auth-db",
+  "description": "Five failed logins for the same account inside one minute.",
+  "severity": "MEDIUM",
+  "status": "OPEN",
+  "reported_by": "analyst1",
+  "asset_id": 1,
+  "asset_name_snapshot": "core-auth-db",
+  "created_at": "2026-09-04T09:12:03.441Z",
+  "updated_at": "2026-09-04T09:12:03.441Z"
+}
+```
+
+`422` when a field is missing or out of range (`title`, `description`, `severity`, `reported_by`,
+`asset_id` — see `services/incident-service/app/schemas.py`). One `INCIDENT_CREATED` event is
+emitted, carrying the request's correlation ID. If `asset-service` cannot be reached, the circuit
+breaker's fallback still lets the incident be created, degraded — see `docs/patterns.md` pattern 2.
+
+### GET /api/v1/incidents and GET /api/v1/incidents/{id}
+
+`200` with an `IncidentRead` array or object as shown above. The list endpoint accepts optional
+`?status=` and `?severity=` query filters. `404` on an unknown id.
+
+### PUT /api/v1/incidents/{id}
+
+Request carries only the fields being changed — `title`, `description` and/or `status`; severity
+changes go through its own endpoint below, not this one. `200` with the updated incident, `404` on
+an unknown id.
+
+### PATCH /api/v1/incidents/{id}/severity
+
+Request:
+
+```json
+{ "severity": "HIGH" }
+```
+
+`200` with the updated incident. `404` on an unknown id, `422` when `severity` is not one of `LOW`,
+`MEDIUM`, `HIGH`, `CRITICAL`. Escalating to `HIGH` or `CRITICAL` emits one `INCIDENT_ESCALATED`
+event.
+
+### DELETE /api/v1/incidents/{id}
+
+Admin only. `204` on success, `403` for a non-admin, `404` on an unknown id.
+
 ## asset-service
 
 | Method | Path | Auth | Purpose |
@@ -153,6 +219,35 @@ Admin only. `200` with the array above, oldest first. `403` for a non-admin.
 | POST | `/assets` | bearer, admin | Register an asset |
 | PUT | `/assets/{id}` | bearer, admin | Update an asset |
 | DELETE | `/assets/{id}` | bearer, admin | Remove an asset |
+
+Built at build step 6. Paths below are shown without the `/api/v1` prefix.
+
+### POST /api/v1/assets
+
+Admin only. Request:
+
+```json
+{
+  "name": "core-auth-db",
+  "asset_type": "database",
+  "criticality": "CRITICAL",
+  "owner": "platform-team",
+  "location": "eu-west-1"
+}
+```
+
+`201` with the created asset (id, timestamps added). `403` for a non-admin, `409` when `name` is
+already registered, `422` on a missing or out-of-range field.
+
+### GET /api/v1/assets and GET /api/v1/assets/{id}
+
+`200` with an `AssetRead` array or object. The list endpoint accepts an optional `?asset_type=`
+filter. `404` on an unknown id. Reading a `CRITICAL` asset emits one `ASSET_ACCESSED` event.
+
+### PUT /api/v1/assets/{id} and DELETE /api/v1/assets/{id}
+
+Admin only. `PUT` carries only the fields being changed and returns `200` with the updated asset;
+`DELETE` returns `204`. Both return `403` for a non-admin and `404` on an unknown id.
 
 ## Operational endpoints
 
