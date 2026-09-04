@@ -37,6 +37,8 @@ Two consequences of the same rule, both tested:
 ```bash
 python -m rag.generation.main --questions   # the supported question types
 python -m rag.generation.main --demo        # the step-19 question, on a real alert
+                                            # (a Multiple Failed Logins one where
+                                            #  the graph holds one — D-35)
 python -m rag.generation.main "Which alerts affect auth-service?"
 ```
 

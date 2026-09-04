@@ -55,17 +55,33 @@ def supported_questions() -> list[str]:
     ]
 
 
+#: The rule whose alerts the Phase 2 specification's demonstration scenario
+#: narrates - repeated failed logins through to a credential-attack answer.
+#: `--demo` prefers one of these so the demonstrated answer tells that story.
+DEMO_RULE_NAME = "Multiple Failed Logins"
+
+
 def _first_alert_id() -> str | None:
     """
     Purpose: an alert id from the live graph, so `--demo` asks about a real
-             alert rather than a hardcoded one that may not be loaded.
+             alert rather than a hardcoded one that may not be loaded. A
+             *Multiple Failed Logins* alert is preferred, because that is the
+             story the specification's demonstration scenario tells; without the
+             preference the choice falls to id order, which is a content hash
+             and so effectively arbitrary once every alert is HIGH.
     Inputs:  none; reads Neo4j.
     Output:  an `alt-` id, or None when the graph holds no alert.
     """
     from kg.loader.connection import run_query
 
     rows = run_query(
-        "MATCH (a:Alert) RETURN a.alertId AS id ORDER BY a.severity, id LIMIT 1"
+        """
+        MATCH (a:Alert)
+        RETURN a.alertId AS id
+        ORDER BY a.ruleName = $preferred DESC, a.severity, id
+        LIMIT 1
+        """,
+        preferred=DEMO_RULE_NAME,
     )
     return rows[0]["id"] if rows else None
 
