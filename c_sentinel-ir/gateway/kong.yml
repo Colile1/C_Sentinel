@@ -198,3 +198,148 @@ plugins:
       limit_by: consumer
       fault_tolerant: true
       hide_client_headers: false
+
+  # Gateway security events, global. This is what puts `api-gateway` into the
+  # collector's live stream instead of only into a hand-written fixture.
+  #
+  # The problem this solves: Kong's ordinary access log is nginx combined
+  # format - `IP - - [date] "GET /path" 401 26 "-" "curl"` - which carries no
+  # eventType, no correlationId and no severity, so soc/collector/reader.py
+  # skips every line of it as an application log line. The gateway was
+  # therefore the one emitter in docs/soc-events.md that the collector could
+  # never see live; UNAUTHORISED_ACCESS and RATE_LIMIT_EXCEEDED reached the
+  # rules only through `--file`.
+  #
+  # file-log writes to /dev/stdout, so the events land in `docker compose logs`
+  # beside the three services' own events and the existing collector source
+  # picks them up with no reader change - the source addition the step-14 note
+  # asked for.
+  #
+  # `custom_fields_by_lua` runs one sandboxed expression per key. Two things
+  # about it are not obvious and both were verified against kong:3.7 here:
+  #   - returning nil UNSETS a field, which is the only way to drop Kong's
+  #     default payload (latencies, request, response, route, service, source,
+  #     ...). The pruned list mirrors the `root` table in kong/pdk/log.lua.
+  #     libs/common/events.py sets extra="forbid", so a single leftover key
+  #     makes the reader raise MalformedEventError on every gateway line.
+  #   - the sandbox exposes `kong`, `ngx`, and the safe stdlib (string, math,
+  #     os), which is enough to mint the id and stamp the timestamp.
+  # `_prune` is keyed first only for readability; key order is not load-bearing,
+  # since every expression runs before kong.log.serialize() is called.
+  #
+  # Only refusals are emitted. A 200 through the gateway is already covered by
+  # the upstream service's own REQUEST_RECEIVED/REQUEST_COMPLETED pair, and
+  # emitting it here too would double-count Rule 3's volume signal.
+  - name: file-log
+    config:
+      path: /dev/stdout
+      reopen: false
+      custom_fields_by_lua:
+
+        # Drop Kong's own serialized payload. `correlation_id` is in this list
+        # because the global correlation-id plugin injects it into the
+        # serializer as snake_case - it is NOT one of the default fields in
+        # kong/pdk/log.lua, and missing it made every real gateway event fail
+        # the reader on `non-schema keys ['correlation_id']`. Any future plugin
+        # that adds a serializer field must be pruned here too.
+        #
+        # A permitted request returns nil from every expression below, so it
+        # serializes to `{}` - no eventType, which is exactly what the reader
+        # skips, and no partially-filled stub line.
+        _prune: |
+          for _, k in ipairs({"latencies","request","response","route","service",
+                              "client_ip","started_at","upstream_uri","workspace",
+                              "workspace_name","consumer","authenticated_entity",
+                              "tries","upstream_status","source","correlation_id"}) do
+            kong.log.set_serialize_value(k, nil)
+          end
+          return nil
+
+        eventId: |
+          local s = kong.response.get_status()
+          if not (s == 401 or s == 403 or s == 429) then return nil end
+          return "evt-" .. string.format("%06x", math.random(0, 16777215))
+                        .. string.format("%06x", math.random(0, 16777215))
+
+        timestamp: |
+          local s = kong.response.get_status()
+          if not (s == 401 or s == 403 or s == 429) then return nil end
+          return os.date("!%Y-%m-%dT%H:%M:%SZ")
+
+        serviceName: |
+          local s = kong.response.get_status()
+          if s == 401 or s == 403 or s == 429 then return "api-gateway" end
+          return nil
+
+        eventType: |
+          local s = kong.response.get_status()
+          if s == 429 then return "RATE_LIMIT_EXCEEDED" end
+          if s == 401 or s == 403 then return "UNAUTHORISED_ACCESS" end
+          return nil
+
+        # A refused request is MEDIUM: on its own it is one bounced caller, and
+        # it is the rules that decide when a run of them is serious. Matches the
+        # severities the step-15 fixture uses for the same two event types.
+        severity: |
+          local s = kong.response.get_status()
+          if s == 401 or s == 403 or s == 429 then return "MEDIUM" end
+          return nil
+
+        endpoint: |
+          local s = kong.response.get_status()
+          if s == 401 or s == 403 or s == 429 then
+            return kong.request.get_path()
+          end
+          return nil
+
+        httpMethod: |
+          local s = kong.response.get_status()
+          if s == 401 or s == 403 or s == 429 then
+            return kong.request.get_method()
+          end
+          return nil
+
+        statusCode: |
+          local s = kong.response.get_status()
+          if s == 401 or s == 403 or s == 429 then return s end
+          return nil
+
+        message: |
+          local s = kong.response.get_status()
+          if s == 429 then return "Request refused: rate limit exceeded." end
+          if s == 401 or s == 403 then
+            return "Request to " .. kong.request.get_path()
+                   .. " refused: caller is not authorised."
+          end
+          return nil
+
+        # The gateway's own correlation-id plugin has already stamped the
+        # header by the log phase, so the gateway event threads onto the same
+        # workflow as the services' events. The fallback only covers a request
+        # refused before that plugin ran.
+        correlationId: |
+          local s = kong.response.get_status()
+          if not (s == 401 or s == 403 or s == 429) then return nil end
+          return kong.request.get_header("X-Correlation-ID")
+                 or ("corr-gateway-" .. string.format("%08x", math.random(0, 2^31)))
+
+        # userId is the authenticated consumer where there is one. On a 401
+        # there is by definition no verified identity, so the field stays absent
+        # rather than being filled with an unverified claim.
+        userId: |
+          local c = kong.client.get_consumer()
+          if c then return c.username end
+          return nil
+
+        sourceIp: |
+          local s = kong.response.get_status()
+          if s == 401 or s == 403 or s == 429 then
+            return kong.client.get_forwarded_ip()
+          end
+          return nil
+
+        affectedEntity: |
+          local s = kong.response.get_status()
+          if s == 429 then return "rate-limit" end
+          if s == 401 or s == 403 then return kong.request.get_path() end
+          return nil

@@ -12,7 +12,7 @@ column is a mark not yet earned.**
 | **Knowledge graph model** — relevant security, application and operational entities | 15% | [kg/model/graph_model.md](../../kg/model/graph_model.md), `schema.cypher`, `graph_model.py` | 17 | 8:00–9:30 — the model document and the Neo4j Browser visualisation |
 | **Graph integration** — events and alerts inserted and linked meaningfully | 10% | `kg/loader/` (three loaders), `kg/cypher/q1..q5` | 17, 18 | 4:00–8:00 stage 3, then the three-hop alert→control query at 8:00 |
 | **RAG capability** — natural-language questions retrieve graph evidence and produce grounded answers | 25% | `rag/retrieval/`, `rag/generation/`, [rag-demonstration.md](rag-demonstration.md) | 19 | 4:00–8:00 stage 4, then three more questions and both refusals at 9:30–11:00 |
-| **Technical explanation** — architecture, design choices, limitations, evidence | 15% | [deliverable2.md](deliverable2.md), `DECISIONS.md` (D-25 to D-34), the folder READMEs | 20 | Read alongside the demo; §9 states the limitations plainly |
+| **Technical explanation** — architecture, design choices, limitations, evidence | 15% | [deliverable2.md](deliverable2.md), `DECISIONS.md` (D-25 to D-36), the folder READMEs | 20 | Read alongside the demo; §9 states the limitations plainly |
 
 ## Specification deliverables (§10)
 
@@ -36,6 +36,8 @@ column is a mark not yet earned.**
    rather than reading only the prose.
 
 2. **Technical explanation, 15% — limitations are marked.** The criterion names limitations
-   explicitly. §9 of the report states four of them plainly, including the one genuinely open item
-   (Kong's log stream is not yet a live collector source). Claiming completeness that the code does
-   not have is worth less than naming the gap and showing it is understood.
+   explicitly. §9 of the report states the remaining ones plainly — the in-process alert store, no
+   LLM, six question shapes, the committed capture, unexercised `Incident` nodes. The Kong
+   log-stream source, previously the one genuinely open code item, is now closed and live-verified
+   (D-36). Claiming completeness that the code does not have is worth less than naming a gap and
+   showing it is understood — and closing one is worth more than either.
