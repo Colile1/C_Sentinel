@@ -1,0 +1,6 @@
+Writes for security-knowledge: 56
+Schema statements applied: 17
+Applied topology: 30
+Applied events: 109
+Applied security-knowledge: 56
+Graph load complete.
