@@ -81,7 +81,14 @@ services:
     retries: 3
     connect_timeout: 3000
     write_timeout: 10000
-    read_timeout: 10000
+    # 20s, not the 10s the other upstreams use. incident-service is the only
+    # service that calls a dependency behind the retry + circuit breaker
+    # (asset-service, D-16). When that dependency is down, the first create
+    # still spends RETRY_MAX_ATTEMPTS (3) x DEPENDENCY_TIMEOUT_SECONDS (3.0)
+    # plus backoff - about 9.4s - before the breaker opens and returns the
+    # documented degraded 201. At 10s Kong gave up first and sent a 504, which
+    # hid the graceful degradation the pattern exists to demonstrate.
+    read_timeout: 20000
     routes:
       - name: incidents
         paths:

@@ -67,7 +67,18 @@ def test_token_carries_the_issuer_kong_matches_on() -> None:
 def test_expiry_follows_the_configured_lifetime() -> None:
     """Expiry comes from settings, never hardcoded."""
     now = datetime(2026, 9, 3, 12, 0, tzinfo=timezone.utc)
-    claims = jwt.decode(_issue(expiry_minutes=15, now=now), SECRET, algorithms=[ALGORITHM])
+    # `verify_exp` off: this test asserts the ARITHMETIC of iat/exp against a
+    # pinned `now`, not that expiry is enforced - which is
+    # test_expired_token_is_rejected's job below. Left on, the token issued into
+    # a fixed past is already expired against the real clock, so the test passed
+    # only in the fifteen minutes after it was written and failed every run
+    # since (carried since step 5).
+    claims = jwt.decode(
+        _issue(expiry_minutes=15, now=now),
+        SECRET,
+        algorithms=[ALGORITHM],
+        options={"verify_exp": False},
+    )
     assert claims["iat"] == int(now.timestamp())
     assert claims["exp"] == int((now + timedelta(minutes=15)).timestamp())
 

@@ -27,6 +27,9 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COMPOSE_FILE = "deploy/docker-compose.yml"
+# Kong's rate-limit window is a minute; allow a little over one full window for
+# the counter to reset after the burst test.
+RATE_LIMIT_WAIT_SECONDS = 75
 
 GATEWAY_URL = os.environ.get("GATEWAY_URL", "http://localhost:8000/api/v1")
 CONSUL_URL = os.environ.get("CONSUL_URL", "http://localhost:8500")
@@ -48,7 +51,20 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if Path(item.fspath).is_relative_to(here):
             item.add_marker(pytest.mark.integration)
-    items.sort(key=lambda it: 1 if it.get_closest_marker("stack_mutating") else 0)
+    # Three tiers, in order: ordinary tests, then the rate-limit burst, then the
+    # stack-mutating test. The burst deliberately exhausts Kong's global limit,
+    # so anything logging in after it is refused with a 429 and skips itself -
+    # which silently under-reports the suite. Sorting it after the tests that
+    # need a working login, but before the container-stopping one, lets a single
+    # `pytest tests/integration` run all twelve.
+    def _tier(it) -> int:
+        if it.get_closest_marker("stack_mutating"):
+            return 2
+        if it.get_closest_marker("rate_limiting"):
+            return 1
+        return 0
+
+    items.sort(key=_tier)
 
 
 def pytest_configure(config):
@@ -56,6 +72,10 @@ def pytest_configure(config):
     Inputs: the pytest config. Output: None."""
     config.addinivalue_line(
         "markers", "stack_mutating: stops or starts a container; must run last"
+    )
+    config.addinivalue_line(
+        "markers",
+        "rate_limiting: exhausts the gateway rate limit; runs after normal tests",
     )
 
 
@@ -147,10 +167,20 @@ def token(anon_client: httpx.Client) -> str:
              so a misconfigured bootstrap admin is a clear skip, not a cascade
              of failures.
     """
-    response = anon_client.post(
-        "/auth/login",
-        json={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
-    )
+    # A 429 here is transient, not a misconfiguration: the rate-limit burst test
+    # exhausts Kong's global counter, and the window is a minute. Skipping on it
+    # silently drops real coverage, so wait the window out and retry. Any other
+    # non-200 is a genuine setup problem and still skips immediately.
+    deadline = time.time() + RATE_LIMIT_WAIT_SECONDS
+    while True:
+        response = anon_client.post(
+            "/auth/login",
+            json={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
+        )
+        if response.status_code != 429 or time.time() >= deadline:
+            break
+        time.sleep(5)
+
     if response.status_code != 200:
         pytest.skip(
             f"admin login returned {response.status_code}; is BOOTSTRAP_ADMIN_* "
@@ -173,7 +203,12 @@ def auth_client(correlation_id: str, token: str):
             "X-Correlation-ID": correlation_id,
             "Authorization": f"Bearer {token}",
         },
-        timeout=10,
+        # Sized for the retry budget, not for a healthy call. When the circuit
+        # breaker test stops asset-service, the first create still costs
+        # RETRY_MAX_ATTEMPTS (3) x DEPENDENCY_TIMEOUT_SECONDS (3.0) plus backoff
+        # inside incident-service before the breaker opens - about 9.4s, which
+        # a 10s client timeout loses to gateway and app overhead.
+        timeout=30,
     ) as client:
         yield client
 

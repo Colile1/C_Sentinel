@@ -122,7 +122,10 @@ def main() -> int:
     )
     _line("Wrote", logs_file.relative_to(REPO_ROOT))
 
-    services_seen = {entry.get("service") for entry in logs}
+    # `serviceName`, not `service` - that is the key the JSON log formatter in
+    # libs/common/logging.py writes. Reading `service` makes every line look
+    # unattributed and reports all three services as missing.
+    services_seen = {entry.get("serviceName") for entry in logs}
     _line("Services that logged this id", ", ".join(sorted(s for s in services_seen if s)))
     missing = [s for s in SERVICES if s not in services_seen]
     if missing:

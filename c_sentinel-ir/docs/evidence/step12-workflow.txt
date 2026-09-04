@@ -1,0 +1,31 @@
+Correlation ID: corr-332de1db16a547a4
+
+Gateway base URL: http://localhost:8000/api/v1
+Correlation ID for this run: corr-332de1db16a547a4
+
+Step 1 - login URL: http://localhost:8000/api/v1/auth/login
+Step 1 - status: 200
+Step 1 - role: admin
+Step 1 - correlation ID echoed: corr-332de1db16a547a4
+
+Step 2 - list assets URL: http://localhost:8000/api/v1/assets
+Step 2 - status: 200
+Step 2 - assets returned: 6
+Step 2 - target asset: 1 core-auth-db (CRITICAL)
+
+Step 3 - create incident URL: http://localhost:8000/api/v1/incidents
+Step 3 - status: 201
+Step 3 - incident ID: 20
+Step 3 - asset name snapshot: core-auth-db
+Step 3 - correlation ID echoed: corr-332de1db16a547a4
+
+Step 4 - read incident URL: http://localhost:8000/api/v1/incidents/20
+Step 4 - status: 200
+Step 4 - severity now: MEDIUM
+
+Step 5 - escalate URL: http://localhost:8000/api/v1/incidents/20/severity
+Step 5 - status: 200
+Step 5 - severity now: HIGH
+
+Workflow complete: all five steps returned their expected status
+Grep this correlation ID in every service log: corr-332de1db16a547a4
