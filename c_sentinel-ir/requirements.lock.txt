@@ -25,6 +25,7 @@ idna==3.19
 iniconfig==2.3.0
 Mako==1.4.1
 MarkupSafe==3.0.3
+neo4j==6.3.0
 packaging==26.3
 pluggy==1.6.0
 prometheus-fastapi-instrumentator==8.1.0
@@ -44,6 +45,7 @@ python-consul2==0.1.5
 python-dotenv==1.2.3
 python-jose==3.5.0
 python-json-logger==4.2.0
+pytz==2026.3.post1
 PyYAML==6.0.3
 requests==2.34.2
 rsa==4.9.1
