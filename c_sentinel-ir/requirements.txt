@@ -20,6 +20,6 @@ python-consul2
 pytest
 pytest-asyncio
 
-# Phase 2 only — install when build step 12 begins.
-# neo4j
-# sentence-transformers
+# Phase 2 only.
+neo4j
+# sentence-transformers  — install when build step 19 begins.
