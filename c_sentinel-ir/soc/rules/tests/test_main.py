@@ -18,9 +18,10 @@ from pathlib import Path
 
 import pytest
 
+from soc.alert_service.dependencies import get_alert_store
 from soc.collector.main import build_store
 from soc.rules.catalogue import evaluate_all
-from soc.rules.main import main
+from soc.rules.main import main, persist_alerts
 
 _EVIDENCE = Path(__file__).resolve().parents[3] / "docs" / "evidence"
 _ATTACK_STREAM = _EVIDENCE / "step15-attack-events.jsonl"
@@ -88,6 +89,7 @@ def test_the_committed_attack_raises_every_rule(capsys):
     assert main(["--file", str(_ATTACK_STREAM)]) == 0
     out = capsys.readouterr().out
     assert "Events evaluated: 22" in out
+    assert "every related event resolves" in out
     for rule_name in (
         "Multiple Failed Logins",
         "Unauthorised Endpoint Access",
@@ -95,6 +97,59 @@ def test_the_committed_attack_raises_every_rule(capsys):
         "Service Failure",
     ):
         assert rule_name in out
+
+
+def test_persist_alerts_stores_every_alert_and_its_events_resolve():
+    """
+    Purpose: the step-16 handover, run through the CLI's own helper - every
+             alert a real attack raises lands in the alert store, and every id
+             in its `relatedEvents` is an event the collector actually holds.
+    Inputs:  none.
+    Output:  assertions.
+    """
+    store = _store_from(_ATTACK_STREAM)
+    events = store.all_events()
+    latest = datetime.strptime(
+        events[-1].timestamp, "%Y-%m-%dT%H:%M:%SZ"
+    ).replace(tzinfo=timezone.utc)
+    alerts = evaluate_all(store, latest)
+    assert alerts
+
+    stored = persist_alerts(alerts, store)
+    assert stored == len(alerts)
+
+    alert_store = get_alert_store()
+    known_event_ids = {event.event_id for event in events}
+    for alert in alerts:
+        held = alert_store.get(alert.alert_id)
+        assert held.related_events
+        assert set(held.related_events) <= known_event_ids
+
+
+def test_persist_alerts_rejects_an_alert_citing_an_unknown_event():
+    """
+    Purpose: a rule that built evidence from an event not in the store is a bug,
+             and `persist_alerts` refuses it rather than storing a dangling
+             citation the graph loader would later trip over.
+    Inputs:  none.
+    Output:  assertions.
+    """
+    from datetime import datetime as _dt, timezone as _tz
+
+    from common.events import Severity
+    from soc.alert_service.models import Alert
+    from soc.collector.store import EventStore
+
+    orphan = Alert(
+        timestamp="2026-09-04T12:00:00Z",
+        rule_name="Multiple Failed Logins",
+        severity=Severity.HIGH,
+        description="cites an event that is not in the store",
+        related_events=("evt-ffffffffffff",),
+        recommended_action="none",
+    )
+    with pytest.raises(ValueError, match="unknown event ids"):
+        persist_alerts([orphan], EventStore())
 
 
 @pytest.mark.skipif(

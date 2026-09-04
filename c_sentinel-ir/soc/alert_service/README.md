@@ -21,9 +21,24 @@ evidence rather than assert.
 | File | Responsibility | Status |
 |------|----------------|--------|
 | `models.py` | `Alert` — the Pydantic model of the schema above, plus the `AlertStatus` enum (OPEN, ACKNOWLEDGED, CLOSED) and `new_alert_id()` | **built at step 15** |
-| `store.py` | `AlertStore` — create, get, list by severity, list by affected service, update status | step 16 |
-| `router.py` | `GET /api/v1/alerts`, `GET /api/v1/alerts/{id}`, `PATCH /api/v1/alerts/{id}/status` | step 16 |
-| `main.py` | Thin entry point, same wiring shape as a Phase 1 service | step 16 |
+| `store.py` | `AlertStore` — `add`/`extend`, `get`, `list` by severity, affected service and status, `set_status` (by replacement, not mutation), `resolve_events` | **built at step 16** |
+| `dependencies.py` | `get_alert_store()` — the one process-wide `AlertStore` the API serves from, overridable in tests | **built at step 16** |
+| `schemas.py` | `StatusChange` — the body of the status-change request; responses are the schema dict itself | **built at step 16** |
+| `router.py` | `GET /api/v1/alerts`, `GET /api/v1/alerts/{id}`, `PATCH /api/v1/alerts/{id}/status` | **built at step 16** |
+| `main.py` | Thin entry point: shared JSON logging, shared typed-error handlers, a liveness `/health`, the alert router. No database, no Consul — the SOC layer is an operator tool, not a member of the request path (D-30) | **built at step 16** |
+
+## The store is in-process
+
+`AlertStore` mirrors `soc.collector.store.EventStore`: an append-and-query structure held for
+the process, no database. The rules are pure functions of an event store and a clock, and the
+alert API is a pure function of an alert store, so persistence would add a technology without
+serving step 16 or the demo — the same reasoning as D-25. `soc.rules.main` fills the store: after
+evaluating the catalogue it calls `persist_alerts`, which refuses any alert whose `relatedEvents`
+do not all resolve to events in the collector's store and then `extend`s the rest in.
+
+`Alert` is frozen, so `set_status` replaces the stored record with a `model_copy` carrying the new
+status and the same id — an alert stays a faithful record of what the rule saw while still moving
+through OPEN → ACKNOWLEDGED → CLOSED.
 
 `models.py` was built one step early, at step 15, because the rules must return something and an
 alert is a contract shared by the rules that raise it, the API that serves it and the graph loader
