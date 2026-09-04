@@ -1,0 +1,61 @@
+step21-gateway-source.txt - Kong's log stream as a live collector source (D-36)
+Captured 4 September 2026 against the running Phase 1 + Phase 2 stack.
+Author: Colile
+
+The gap this closes: api-gateway was the one emitter in docs/soc-events.md
+that the collector could never read live. Kong's default access log carries
+no eventType, so soc/collector/reader.py skipped it as an application log
+line, and UNAUTHORISED_ACCESS / RATE_LIMIT_EXCEEDED reached the rules only
+through the hand-written --file capture.
+
+=== 1. Kong's DEFAULT access log - why the reader skipped it ===========
+nginx combined format: no eventType, no correlationId, no severity.
+172.20.0.6 - - [04/Sep/2026:15:43:06 +0000] "GET /metrics HTTP/1.1" 200 22422 "-" "Prometheus/2.53.0"
+172.20.0.6 - - [04/Sep/2026:15:43:24 +0000] "GET /metrics HTTP/1.1" 200 22422 "-" "Prometheus/2.53.0"
+
+=== 2. The file-log plugin's output - the same refusal, in schema ======
+{"serviceName":"api-gateway","timestamp":"2026-09-04T15:42:20Z","eventId":"evt-aee51578b1d5","statusCode":401,"eventType":"UNAUTHORISED_ACCESS","severity":"MEDIUM","endpoint":"/api/v1/auth/users","correlationId":"corr-gateway-253d0ab6","httpMethod":"GET","sourceIp":"172.20.0.1","affectedEntity":"/api/v1/auth/users","message":"Request to /api/v1/auth/users refused: caller is not authorised."}
+
+{"serviceName":"api-gateway","timestamp":"2026-09-04T15:42:52Z","eventId":"evt-ca8c819299aa","endpoint":"/api/v1/assets","statusCode":429,"eventType":"RATE_LIMIT_EXCEEDED","severity":"MEDIUM","sourceIp":"172.20.0.1","correlationId":"corr-gateway-043f6357","userId":"sentinel-ir-client","httpMethod":"GET","affectedEntity":"rate-limit","message":"Request refused: rate limit exceeded."}
+
+=== 3. Permitted traffic emits NO event ================================
+A 200 through the gateway serializes to {} - no eventType, so the reader
+skips it. The upstream service already logs REQUEST_RECEIVED for it, and a
+gateway copy would double-count Rule 3's per-source volume signal.
+Stub lines carrying eventId but no eventType: 0
+
+=== 4. The collector against the LIVE stack - FOUR services ============
+$ python -m soc.collector.main
+Events collected: 2366
+Distinct services: 4 (api-gateway, asset-service, auth-service, incident-service)
+Distinct correlation IDs: 394
+Event types seen: ASSET_ACCESSED, AUTH_FAILED, AUTH_SUCCESS, CIRCUIT_CLOSED, CIRCUIT_OPENED, DEPENDENCY_FAILURE, INCIDENT_CREATED, INCIDENT_ESCALATED, RATE_LIMIT_EXCEEDED, REQUEST_COMPLETED, REQUEST_RECEIVED, UNAUTHORISED_ACCESS
+
+=== 5. The rules firing on REAL gateway events, not a capture ==========
+$ python -m soc.rules.main
+Events evaluated: 2366
+Evaluation moment: 2026-09-04T15:43:28Z
+Alerts raised: 2
+Alerts stored: 2 (every related event resolves)
+
+Alert ID: alt-d947d9ebfcf4
+Rule: Unauthorised Endpoint Access
+Severity: HIGH
+Status: OPEN
+Description: 3 unauthorised requests from 172.20.0.1 within 10 minutes across 3 endpoints including the privileged route /api/v1/auth/users.
+Affected service: api-gateway
+Affected user: not attributed
+Affected entity: /api/v1/auth/users
+Related events: 3
+Recommended action: Review the subject's role assignment, audit the endpoints it was refused on, and revoke the token if the access pattern is not explainable by a legitimate client.
+
+Alert ID: alt-51cfb3907dd3
+Rule: Abnormal Request Rate
+Severity: HIGH
+Status: OPEN
+Description: Abnormal request rate from 172.20.0.1: 10 requests refused by the gateway's rate limit and 45 requests received in 60 seconds, affecting api-gateway, asset-service.
+Affected service: not attributed
+Affected user: sentinel-ir-client
+Affected entity: 172.20.0.1
+Related events: 55
+Recommended action: Rate-limit or block the source address at the gateway, then check upstream capacity and confirm the affected services recovered.

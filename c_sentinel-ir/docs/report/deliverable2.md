@@ -93,12 +93,21 @@ event types**, including `CIRCUIT_OPENED`, `CIRCUIT_CLOSED` and `DEPENDENCY_FAIL
 correlation ID's full journey is traceable across all three services
 ([docs/evidence/step14-collector.txt](../evidence/step14-collector.txt)).
 
-**Known limitation.** The specification names four sources and three are read live. The gateway's
-own events (`UNAUTHORISED_ACCESS`, `RATE_LIMIT_EXCEEDED`) come from Kong's log stream rather than
-the service container logs, and reach the collector today only via `--file`. The reader validates
-gateway-shaped lines identically — they are exercised throughout the attack capture and covered by
-the contract tests — so wiring Kong's stream in is a **source** addition, not a reader or rule
-change. It is recorded as open in `TODO.md` rather than papered over.
+**All four sources are live (D-36).** The specification names four emitters and the collector now
+reads all four. The gateway was the last one wired: Kong's default access log is nginx combined
+format, which carries no `eventType` and no correlation ID, so the reader correctly skipped it and
+gateway events reached the rules only via `--file`. A `file-log` plugin in `gateway/kong.yml` now
+renders each *refused* request (401, 403, 429) directly in the event schema onto the same stdout the
+services use, so the existing docker source ingests it with **no reader or rule change** — the
+source addition this was always scoped as.
+
+**Verified live:** against the running stack, `soc.collector.main` reports **4 distinct services**
+(was 3) and `RATE_LIMIT_EXCEEDED` / `UNAUTHORISED_ACCESS` now appear among the collected event
+types. Driving three unauthorised probes and a 70-request burst through the gateway, the rules raise
+*Unauthorised Endpoint Access* at **HIGH** (the probes include the privileged `/api/v1/auth/users`)
+and *Abnormal Request Rate* on **both** of its signals at once — from genuine gateway events, not a
+capture. Permitted traffic emits nothing at the gateway, because the upstream service already logs
+it and a second copy would double-count Rule 3's volume signal.
 
 ## 4. Detection rules
 
@@ -231,8 +240,6 @@ This is the traceability the specification asks for, and each link is visible in
 
 Stated plainly, because the specification marks the explanation of limitations:
 
-- **Kong's log stream is not yet a live collector source.** Gateway events reach the collector via
-  `--file` today. See §3.
 - **The alert store is in-process.** Alerts do not survive a restart; they are re-derivable by
   re-running the rules over the event stream, and are persisted meaningfully only in the graph.
 - **No LLM.** Answers read as generated. This was chosen (D-34) for the structural grounding

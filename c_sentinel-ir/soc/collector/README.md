@@ -31,11 +31,17 @@ Depends on `libs/common/events.py` for the schema, and on nothing else in the tr
 rules are pure functions of its contents and a clock, so persistence would add a technology without
 serving step 15 or the demo (D-25).
 
-The event schema names four emitters. `auth-service`, `incident-service` and `asset-service` write
-to container stdout and the collector reads them from `docker compose logs`; `api-gateway`'s events
-(`UNAUTHORISED_ACCESS`, `RATE_LIMIT_EXCEEDED`) come from Kong's own log stream. The reader validates
-any of the four — a gateway-shaped line parses like any other — so wiring Kong's stream in is a
-source addition at step 15, not a reader change.
+The event schema names four emitters, and all four are live. `auth-service`, `incident-service`
+and `asset-service` write to container stdout and the collector reads them from
+`docker compose logs`. `api-gateway`'s events (`UNAUTHORISED_ACCESS`, `RATE_LIMIT_EXCEEDED`) come
+from Kong's own log stream: the `file-log` plugin in `gateway/kong.yml` renders each refused request
+as a schema-shaped JSON line on the same stdout, so the existing docker source picks them up with no
+reader change — a source addition, exactly as this note anticipated.
+
+Kong's *ordinary* access log is nginx combined format and carries no `eventType`, so the reader
+skips it as an application log line; only the `file-log` lines are events. Permitted traffic emits
+nothing here, because the upstream service already logs it and counting it twice would inflate
+Rule 3's volume signal. See D-36.
 
 Done when: a `docker compose logs` run of a stack that has served `client/demo_workflow.py` and
 `client/failed_login_demo.py` leaves a store whose `by_correlation` returns the whole workflow
