@@ -10,7 +10,7 @@ Everything the marker reads and everything a future session needs that is not co
 | `architecture.md` | The architecture in prose, with the diagram and the decisions behind it |
 | `patterns.md` | The two claimed patterns: what each is, how it is implemented here, where the code lives, and how the demo proves it fires |
 | `specs/` | The original course specification PDFs, kept in-repo so the source of truth travels with the project |
-| `report/` | The submitted document and the demo script |
+| `report/` | The submitted documents and the demo scripts, one set per phase. Phase 2 adds the rule catalogue, the RAG demonstration and the Phase 2 report |
 | `diagrams/` | Diagram sources and exports |
 | `evidence/` | Screenshots and captures taken *during* the build, for the report and the video |
 | `session-log.md` | A narrative record per session: what was done, why, and how it fits the project. Fuller than `PROGRESS.md`'s four latest-state fields; append, don't rewrite |

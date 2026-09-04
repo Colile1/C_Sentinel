@@ -26,7 +26,7 @@ import pytest
 from kg.loader.connection import close_driver, get_driver, run_query
 from kg.loader.main import collect_writes, schema_statements
 from kg.loader.writes import apply
-from rag.generation.main import answer_question
+from rag.generation.main import DEMO_RULE_NAME, _first_alert_id, answer_question
 from rag.generation.templates import generate
 from rag.retrieval.retriever import retrieve
 from soc.collector.main import build_store
@@ -174,3 +174,22 @@ def test_an_alert_that_is_not_in_the_graph_is_answered_honestly(loaded_graph):
     answer = answer_question("Why was alert alt-ffffffffffff created?")
     assert not answer.is_grounded
     assert "does not hold an answer" in answer.text
+
+
+def test_the_demo_picks_the_alert_the_scenario_narrates(loaded_graph):
+    """
+    Purpose: `--demo` lands on a Multiple Failed Logins alert, which is the
+             story the Phase 2 demonstration scenario tells. Every alert the
+             attack raises is HIGH, so without the rule preference the choice
+             falls to a content-hashed id and the demo narrates whichever alert
+             happens to sort first.
+    Inputs:  the loaded graph.
+    Output:  assertions.
+    """
+    alert_id = _first_alert_id()
+    assert alert_id, "the loaded attack capture should hold alerts"
+
+    rows = run_query(
+        "MATCH (a:Alert {alertId: $id}) RETURN a.ruleName AS rule", id=alert_id
+    )
+    assert rows[0]["rule"] == DEMO_RULE_NAME
