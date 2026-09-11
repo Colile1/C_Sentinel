@@ -4,7 +4,6 @@ Everything the marker reads and everything a future session needs that is not co
 
 | Path | Purpose |
 |------|---------|
-| `build-order.md` | The numbered build steps and the verification that closes each. The spine of the project |
 | `soc-events.md` | **The event schema contract.** Fixed at build step 3; every service obeys it; Phase 2 depends on it |
 | `api.md` | The endpoint catalogue: base URL, every route, method, request body, response body, auth requirement, status codes |
 | `architecture.md` | The architecture in prose, with the diagram and the decisions behind it |
@@ -13,7 +12,6 @@ Everything the marker reads and everything a future session needs that is not co
 | `report/` | The submitted documents and the demo scripts, one set per phase. Phase 2 adds the rule catalogue, the RAG demonstration and the Phase 2 report |
 | `diagrams/` | Diagram sources and exports |
 | `evidence/` | Screenshots and captures taken *during* the build, for the report and the video |
-| `session-log.md` | A narrative record per session: what was done, why, and how it fits the project. Fuller than `PROGRESS.md`'s four latest-state fields; append, don't rewrite |
 
 `diagrams/` and `evidence/` hold artefacts rather than specifications and are documented by this
 README rather than each carrying their own.

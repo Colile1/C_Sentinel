@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Testing / tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Environment and secrets
+.env
+.env.local
+*.local.env
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+~$*
+
+# Node
+node_modules/
+
+# Local planning and working notes - not part of the submitted project
+CLAUDE.md
+TODO.md
+plans.md
+PROGRESS.md
+DECISIONS.md
+docs/build-order.md
+docs/session-log.md
+c_sentinel-ir/CLAUDE.md
+c_sentinel-ir/TODO.md
+c_sentinel-ir/plans.md
+c_sentinel-ir/PROGRESS.md
+c_sentinel-ir/DECISIONS.md
+c_sentinel-ir/docs/build-order.md
+c_sentinel-ir/docs/session-log.md

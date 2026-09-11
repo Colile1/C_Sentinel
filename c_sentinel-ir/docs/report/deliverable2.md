@@ -268,5 +268,5 @@ Stated plainly, because the specification marks the explanation of limitations:
 
 **Tests:** 546 unit tests, 0 failures, none requiring a container, a network or a database — of
 which 16 are `neo4j`-marked, passing against a live server and skipping cleanly without one. Run
-per suite (`DECISIONS.md` D-13): libs + contract 196, soc 89, kg 42, rag 77, auth 67, incident 39,
+per suite: libs + contract 196, soc 89, kg 42, rag 77, auth 67, incident 39,
 asset 36.
