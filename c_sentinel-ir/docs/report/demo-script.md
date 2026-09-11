@@ -42,7 +42,10 @@ in one sentence (login must be reachable without a token, everything else must n
 ```bash
 curl -i http://localhost:8000/api/v1/incidents                 # no token -> 401, from Kong
 curl -i http://localhost:8000/api/v1/auth/login -d '{"username":"admin","password":"WRONG"}' -H "Content-Type: application/json"
-for i in $(seq 1 65); do curl -s -o /dev/null -w "%{http_code} " http://localhost:8000/api/v1/health; done   # tail turns 429
+# /api/v1/health has no Kong route, and a sequential loop is too slow to land
+# 65 requests inside one 60s rate-limit window - fire them concurrently
+# against a route that exists instead, so the tail actually turns 429:
+for i in $(seq 1 65); do curl -s -o /dev/null -w "%{http_code} " -X POST http://localhost:8000/api/v1/auth/login -d '{"username":"admin","password":"WRONG"}' -H "Content-Type: application/json" & done; wait
 ```
 
 Call out that every response carries `X-Correlation-ID` and the `RateLimit-*` headers — read one off
