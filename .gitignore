@@ -28,6 +28,8 @@ htmlcov/
 
 # Editors / OS
 .vscode/
+.claude/
+
 .idea/
 *.swp
 .DS_Store
@@ -52,3 +54,18 @@ c_sentinel-ir/PROGRESS.md
 c_sentinel-ir/DECISIONS.md
 c_sentinel-ir/docs/build-order.md
 c_sentinel-ir/docs/session-log.md
+
+# Submission packages - built artefacts, kept locally and uploaded by hand
+Submission/
+
+# Large binaries - videos, archives and compiled documents do not belong in git
+*.mp4
+*.zip
+*.docx
+*.pdf
+*.pptx
+
+# Course material - lecture slides, specifications and briefs are NWU copyright,
+# kept in the sibling "Project3 Supplimentary files" folder, never in this repo
+brief.txt
+brief 2.txt

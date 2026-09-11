@@ -81,3 +81,7 @@ Every demonstrated result is reproducible from three things: the committed
 configuration comes only from environment variables declared in `deploy/.env.example` — no hidden
 local state, no manually created database rows. `scripts/seed_data.py` is the single source of demo
 data, and `client/demo_workflow.py` reproduces the marked workflow end to end in one command.
+
+## License
+
+Released under the MIT License — see [LICENSE](../LICENSE) at the repository root.
