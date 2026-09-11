@@ -27,7 +27,16 @@ python client/demo_workflow.py              # the marked business workflow
 
 `scripts/seed_data.py` and the clients read `BOOTSTRAP_ADMIN_USERNAME` / `BOOTSTRAP_ADMIN_PASSWORD`
 from the environment (defaulting to `admin` / a placeholder), so export the same values you put in
-`deploy/.env`, or run them with `--env-file` semantics, before seeding.
+`deploy/.env`, or run them with `--env-file` semantics, before seeding:
+
+```
+export $(grep -E '^BOOTSTRAP_ADMIN' deploy/.env | xargs)
+```
+
+The repository-root `setup.bat` / `start.bat --seed` / `stop.bat` are a quick alternative for
+Windows that runs the same steps end to end and prints the generated admin, Grafana and Neo4j
+credentials at the end of their output every time — a faster path to the same result, not a
+replacement for the commands above.
 
 ### Build performance and the contended-connection failure
 
@@ -73,7 +82,8 @@ to Consul under its Compose service name so the health check and Kong both resol
 | `asset-service` | built | 8003 | Own database, own image |
 | `auth-db`, `incident-db`, `asset-db` | postgres:16 | internal | Three separate containers — see the note below |
 | `prometheus` | prom/prometheus | 9090 | Mounts the scrape config |
-| `grafana` | grafana/grafana | 3000 | Provisioned datasource and dashboard |
+| `grafana` | grafana/grafana | 3901 host -> 3000 container | Provisioned datasource and dashboard. Host port moved off the 3000/3001 range some Windows installs reserve for Hyper-V (see `netsh interface ipv4 show excludedportrange`) |
+| `neo4j` | neo4j:5.22 | 7474 HTTP, 7687 Bolt | Health-checked over HTTP (`wget` against `:7474/`), not `cypher-shell` — its JVM start-up can alone exceed a short probe timeout on a loaded host |
 
 **Why three database containers.** Settled — see `DECISIONS.md` D-04. Three containers costs about
 70 MB more than one container holding three databases, on a stack that runs roughly 1 GB either way,
