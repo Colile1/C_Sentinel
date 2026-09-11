@@ -48,7 +48,7 @@ marked resilience pattern feeding the SOC layer.
 **Why the subject is keyed twice.** An attacker controls one of the two identifiers but rarely both.
 Keying only on `userId` misses a run that invents a fresh username each attempt; keying only on
 `sourceIp` misses a distributed run against one account. A burst that trips both raises **two**
-alerts deliberately (`DECISIONS.md` D-26): "this account is under attack" and "this address is
+alerts deliberately: "this account is under attack" and "this address is
 attacking" are different findings with different responses.
 
 **Why the rule can see attacks on accounts that never existed.** `auth_service.py` emits

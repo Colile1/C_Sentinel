@@ -35,7 +35,7 @@ retrieval rather than to call a model:
    question is passed to the driver as a **bound parameter**, never interpolated into the query
    text; a test asserts the id never appears in the query string.
 
-Generation is **template-based** (`DECISIONS.md` D-34). Every slot in every sentence is read out of
+Generation is **template-based**. Every slot in every sentence is read out of
 an `EvidenceNode`, so an answer is *structurally* incapable of stating something the graph does not
 hold. `rag/tests/test_grounding.py` enforces this mechanically: it extracts every alert id, event
 id, technique id and service name from the answer text and asserts each appears in the evidence's
