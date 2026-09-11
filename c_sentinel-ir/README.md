@@ -56,11 +56,16 @@ retrofit, no restructuring.
 cp deploy/.env.example deploy/.env
 docker compose -f deploy/docker-compose.yml up --build -d
 docker compose -f deploy/docker-compose.yml ps        # every service healthy
-python scripts/seed_data.py                            # load demo users, assets
+export $(grep -E '^BOOTSTRAP_ADMIN' deploy/.env | xargs)   # seed_data.py and demo_workflow.py
+python scripts/seed_data.py                            #   read these from the environment
 python client/demo_workflow.py                         # login -> raise incident -> link asset
 open http://localhost:8500                             # Consul: registered instances
-open http://localhost:3000                             # Grafana: request and auth metrics
+open http://localhost:3901                             # Grafana: request and auth metrics
 ```
+
+On Windows, `setup.bat` / `start.bat --seed` / `stop.bat` (repository root) are a quick alternative
+that runs the same steps end to end and prints the generated admin, Grafana and Neo4j login at the
+end of their output — a faster path to the same result, not a replacement for the commands above.
 
 Run the tests:
 
