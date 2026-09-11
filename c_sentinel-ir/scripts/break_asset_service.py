@@ -64,7 +64,13 @@ def _admin_password() -> str:
 def _login() -> ApiClient:
     """Purpose: an admin-authenticated client, or exit on failure.
     Inputs: none. Output: a logged-in ApiClient."""
-    client = ApiClient()
+    # ApiClient's 10s default is shorter than the documented degraded path:
+    # RETRY_MAX_ATTEMPTS (3) x DEPENDENCY_TIMEOUT_SECONDS (3.0) plus backoff is
+    # already ~9.4s before Kong or the network add anything, so the first
+    # breaker probe routinely timed out client-side before the server had a
+    # chance to return its degraded 201. 25s matches Kong's own read_timeout
+    # headroom on the incidents route (see gateway/kong.yml).
+    client = ApiClient(timeout=25.0)
     response = client.login(ADMIN_USERNAME, _admin_password())
     if response.status_code != 200:
         _line("Could not log in", f"{response.status_code} {response.text}")
