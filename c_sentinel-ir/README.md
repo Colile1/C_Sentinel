@@ -84,4 +84,6 @@ data, and `client/demo_workflow.py` reproduces the marked workflow end to end in
 
 ## License
 
-Released under the MIT License — see [LICENSE](../LICENSE) at the repository root.
+All rights reserved. This repository is public for viewing and assessment purposes only —
+see [LICENSE](../LICENSE) at the repository root. No permission is granted to reuse, copy, or
+redistribute this code without the author's written permission.
