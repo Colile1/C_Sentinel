@@ -10,6 +10,7 @@ be marked.
 |------|----------------|
 | `deliverable1.md` | The submitted document, exported to PDF. Sections in the sheet's order: name and student number (Colile Sibanda, 56543115); system functionality in one paragraph; API documentation with base URL, endpoint list and example request/response screenshots for one microservice; architecture diagram; the two patterns and how each was implemented; how security events are collected |
 | `demo-script.md` | The 8-10 minute demo, timed, in the sheet's mandated order, with the exact commands to run and the exact screens to open |
+| `demo-narration.md` | The word-for-word script to read while recording that demo. Keyed to the same timestamps as `demo-script.md`: that file is what to run, this one is what to say |
 | `mark-map.md` | Each of the seven mark-schedule criteria mapped to the section, file and demo minute that earns it. Filled in at step 13 and used as the final pre-submission check |
 
 ## Phase 2
@@ -20,6 +21,7 @@ be marked.
 | `detection-rules.md` | The rule catalogue the specification's §11.4 requires — all seven documented properties for each of the four rules, plus the design trap each rule exists to avoid. Five of the seven are printable from the code with `python -m soc.rules.main --catalogue` |
 | `rag-demonstration.md` | The §11.6 demonstration — six question types and both refusal paths, each with the question, retrieved evidence, generated answer and retrieval method. Real captured output, not illustrative |
 | `phase2-demo-script.md` | The Phase 2 demo, timed, built around `scripts/run_security_workflow.py` so the §7 workflow scenario runs in one pass on camera |
+| `phase2-demo-narration.md` | The word-for-word script to read while recording the Phase 2 demo, keyed to the same timestamps as `phase2-demo-script.md` |
 | `mark-map-phase2.md` | The seven Phase 2 assessment criteria mapped to artefact, build step and demo minute. The final pre-submission check |
 
 The graph model the specification's §11.3 requires is not here: it lives with the code it describes,
