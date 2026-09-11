@@ -285,7 +285,7 @@ services:
       - ../observability/grafana/dashboards/sentinel.json:/var/lib/grafana/dashboards/sentinel.json:ro
       - grafana-data:/var/lib/grafana
     ports:
-      - "127.0.0.1:3001:3000"
+      - "127.0.0.1:3901:3000"
     depends_on:
       prometheus:
         condition: service_healthy
@@ -316,11 +316,14 @@ services:
       - "127.0.0.1:7474:7474"   # HTTP browser
       - "127.0.0.1:7687:7687"   # Bolt driver
     healthcheck:
-      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD}", "RETURN 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 20s
+      # cypher-shell's JVM start-up alone can exceed a short timeout on a loaded
+      # host, so probe the HTTP endpoint instead - it is what the loaders and
+      # browser use, and it answers in a second or two.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:7474/ || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
 
 volumes:
   auth-db-data:
