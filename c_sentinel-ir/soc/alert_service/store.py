@@ -61,6 +61,16 @@ class AlertStore:
             self._alerts[alert.alert_id] = alert
         return len(self._alerts) - before
 
+    def clear(self) -> None:
+        """
+        Purpose: drop every alert held. A rule re-run mints fresh ids, so the
+                 console clears before re-evaluating instead of piling up a
+                 second copy of every firing.
+        Inputs:  none.
+        Output:  None.
+        """
+        self._alerts.clear()
+
     def get(self, alert_id: str) -> Alert:
         """
         Purpose: one alert by its identifier.

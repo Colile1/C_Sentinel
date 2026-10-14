@@ -7,6 +7,7 @@ Everything the marker reads and everything a future session needs that is not co
 | `soc-events.md` | **The event schema contract.** Fixed at build step 3; every service obeys it; Phase 2 depends on it |
 | `api.md` | The endpoint catalogue: base URL, every route, method, request body, response body, auth requirement, status codes |
 | `architecture.md` | The architecture in prose, with the diagram and the decisions behind it |
+| `console.md` | The operator console: how to run it, its architecture, the screen-to-feature map, the design decisions, how it was built and verified, and its limits |
 | `patterns.md` | The two claimed patterns: what each is, how it is implemented here, where the code lives, and how the demo proves it fires |
 | `specs/` | The original course specification PDFs, kept in-repo so the source of truth travels with the project |
 | `report/` | The submitted documents and the demo scripts, one set per phase. Phase 2 adds the rule catalogue, the RAG demonstration and the Phase 2 report |

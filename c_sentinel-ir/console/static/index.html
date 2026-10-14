@@ -1,0 +1,73 @@
+<!doctype html>
+<!--
+  index.html - the Sentinel-IR operator console shell.
+
+  Only the frame lives here: navigation drawer, top app bar, the content slot
+  and the overlay hosts. Every screen is rendered into #content by app.js.
+
+  Author: Colile
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sentinel-IR Console</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%233b5ba9' d='M12 1 3 5v6c0 5.6 3.8 10.7 9 12 5.2-1.3 9-6.4 9-12V5z'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0..1,0&display=block">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="app">
+    <nav class="nav-drawer" id="drawer" aria-label="Main">
+      <div class="brand">
+        <div class="brand-mark"><span class="material-symbols-outlined filled-icon">shield</span></div>
+        <div>
+          <div class="brand-name">Sentinel-IR</div>
+          <div class="brand-sub">Incident reporting &amp; SOC console</div>
+        </div>
+      </div>
+
+      <a class="nav-item" href="#/overview" data-route="overview"><span class="material-symbols-outlined">dashboard</span>Overview</a>
+
+      <div class="nav-heading label-small">Phase 1 · Business</div>
+      <a class="nav-item" href="#/incidents" data-route="incidents"><span class="material-symbols-outlined">report</span>Incidents</a>
+      <a class="nav-item" href="#/assets" data-route="assets"><span class="material-symbols-outlined">dns</span>Assets</a>
+      <a class="nav-item" href="#/users" data-route="users"><span class="material-symbols-outlined">group</span>Users</a>
+
+      <div class="nav-heading label-small">Phase 2 · Security</div>
+      <a class="nav-item" href="#/events" data-route="events"><span class="material-symbols-outlined">stream</span>Security events</a>
+      <a class="nav-item" href="#/alerts" data-route="alerts"><span class="material-symbols-outlined">notifications_active</span>Detection &amp; alerts<span class="badge hidden" id="alert-badge">0</span></a>
+      <a class="nav-item" href="#/graph" data-route="graph"><span class="material-symbols-outlined">hub</span>Knowledge graph</a>
+      <a class="nav-item" href="#/ask" data-route="ask"><span class="material-symbols-outlined">forum</span>Ask GraphRAG</a>
+
+      <div class="nav-heading label-small">Operate</div>
+      <a class="nav-item" href="#/operations" data-route="operations"><span class="material-symbols-outlined">terminal</span>Operations</a>
+      <a class="nav-item" href="#/activity" data-route="activity"><span class="material-symbols-outlined">receipt_long</span>Request trace</a>
+
+      <div class="nav-foot body-small muted">ITRI623 Project 2026 · Colile Sibanda</div>
+    </nav>
+
+    <div class="main">
+      <header class="top-app-bar" id="appbar">
+        <button class="icon-btn menu-btn" id="menu-btn" aria-label="Open navigation"><span class="material-symbols-outlined">menu</span></button>
+        <h1 class="title-large" id="page-title">Overview</h1>
+        <a class="status-pill" href="#/overview" id="status-pill" title="Stack health">
+          <span class="health-dot" id="status-dot"></span><span class="status-text" id="status-text">Checking…</span>
+        </a>
+        <button class="icon-btn" id="theme-btn" aria-label="Toggle dark mode"><span class="material-symbols-outlined">dark_mode</span></button>
+        <button class="user-chip" id="user-chip"></button>
+      </header>
+      <main class="content" id="content"></main>
+    </div>
+  </div>
+
+  <div id="overlay-host"></div>
+  <div class="snackbar" id="snackbar" role="status" aria-live="polite"><span id="snackbar-text"></span></div>
+  <div class="top-progress hidden" id="top-progress"><div class="progress"></div></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

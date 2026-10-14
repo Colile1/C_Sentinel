@@ -143,6 +143,21 @@ def test_extend_stores_a_whole_evaluation_and_counts_the_additions():
     assert len(store) == 3
 
 
+def test_clear_empties_the_store_so_a_rerun_replaces_it():
+    """
+    Purpose: a rule re-run mints fresh ids, so the console clears before
+             re-evaluating; `clear` must leave nothing behind.
+    Inputs:  none.
+    Output:  assertions.
+    """
+    store = AlertStore()
+    store.extend([_alert(), _alert()])
+    store.clear()
+
+    assert len(store) == 0
+    assert store.list() == []
+
+
 def test_resolve_events_returns_the_cited_event_ids():
     """
     Purpose: `kg/loader` joins an alert to its events through this - it must be

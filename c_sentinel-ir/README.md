@@ -28,6 +28,9 @@ retrofit, no restructuring.
 - Exposes Prometheus metrics and health endpoints from every service, scraped and graphed centrally.
 - (Phase 2) Detects threats from the event stream, raises alerts, projects everything into Neo4j,
   and answers questions over the graph with cited evidence.
+- Puts all of it behind one operator console in the browser: incidents, assets, users, the event
+  stream, detection and alert triage, the knowledge graph, GraphRAG, the demo scripts, and a trace
+  of every request's correlation ID.
 
 ## Layout
 
@@ -44,6 +47,7 @@ retrofit, no restructuring.
 | `soc/` | **Phase 2** — event collector, detection rules, alert service |
 | `kg/` | **Phase 2** — Neo4j graph model, Cypher, loaders |
 | `rag/` | **Phase 2** — graph retrieval and grounded answer generation |
+| `console/` | Operator console — one browser UI over every feature of both phases (`docs/console.md`) |
 | `deploy/` | `docker-compose.yml`, Dockerfiles, environment configuration |
 | `docs/` | Build order, API documentation, architecture, patterns, report, demo evidence |
 | `tests/` | Cross-service contract and integration tests |
@@ -66,6 +70,9 @@ open http://localhost:3901                             # Grafana: request and au
 On Windows, `setup.bat` / `start.bat --seed` / `stop.bat` (repository root) are a quick alternative
 that runs the same steps end to end and prints the generated admin, Grafana and Neo4j login at the
 end of their output — a faster path to the same result, not a replacement for the commands above.
+
+`console.bat` (in `c_sentinel-ir/`) then opens the operator console on http://127.0.0.1:8010, from
+which every feature can be driven and inspected (see `docs/console.md`).
 
 Run the tests:
 
