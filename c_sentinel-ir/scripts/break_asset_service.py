@@ -1,5 +1,5 @@
 """
-break_asset_service.py - the ninety seconds that earns the pattern mark.
+break_asset_service.py - a quick live test of the circuit breaker.
 
 Against the live stack:
   1. stop `asset-service`;
@@ -11,7 +11,7 @@ Against the live stack:
      rather than failing with a 500;
   4. restart `asset-service` and wait for `CIRCUIT_CLOSED` in its log.
 
-This is the on-camera twin of `scripts/capture_breaker_evidence.py`, which does
+This is the live twin of `scripts/capture_breaker_evidence.py`, which does
 the same offline with a mock transport. Run this one with the stack up:
 
     python scripts/break_asset_service.py
@@ -58,6 +58,9 @@ def _admin_password() -> str:
     Inputs: none. Output: the password, with the demo default as fallback."""
     import os
 
+    from common.deploy_env import load_deploy_env
+
+    load_deploy_env()
     return os.environ.get("BOOTSTRAP_ADMIN_PASSWORD", "CHANGE_ME_admin_password")
 
 

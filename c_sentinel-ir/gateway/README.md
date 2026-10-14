@@ -1,9 +1,8 @@
 # gateway/
 
 The Kong API Gateway configuration — the single entry point for every client request, on
-`localhost:8000`. Twenty percent of the Deliverable 1 mark rests on this folder, and the submission
-sheet is specific: the marker wants evidence the gateway is *being used*, read off the endpoint
-addresses as requests execute, not merely that it was configured.
+`localhost:8000`. Every request a client makes goes through it, and the endpoint addresses printed
+by the client show that routing happening as requests execute, not merely that it is configured.
 
 Kong runs DB-less: the whole configuration is this declarative file, versioned in git, which is
 exactly what makes it demonstrable.

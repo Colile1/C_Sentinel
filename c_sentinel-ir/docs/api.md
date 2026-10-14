@@ -4,10 +4,10 @@
 it. Direct service ports (8001-8003) exist for inspection and are not part of the public API.
 
 Interactive OpenAPI documentation is generated per service by FastAPI at `/docs` on each service
-port; this file is the consolidated catalogue the submission sheet asks for.
+port; this file is the consolidated catalogue across all services.
 
-Fill in each section as its endpoint is built. Every row needs: method, path, auth requirement,
-request body, response body, and status codes.
+Every row gives the method, path, auth requirement, request body, response body, and status
+codes.
 
 ## Conventions
 
@@ -259,7 +259,6 @@ Admin only. `PUT` carries only the fields being changed and returns `200` with t
 
 ## Example request and response
 
-The submission sheet asks for example requests and responses as screenshots for **one**
-microservice. Use `incident-service` — it is the one that shows the gateway, the token, the
-correlation ID and the cross-service call in a single exchange. Screenshots go in `docs/evidence/`
-and are embedded in `docs/report/deliverable1.md`.
+`incident-service` is the best single example: one exchange shows the gateway, the token, the
+correlation ID and the cross-service call. Captured screenshots are in `docs/evidence/` and
+embedded in `docs/report/deliverable1.md`.

@@ -1,10 +1,10 @@
 """
-test_workflow.py - the marked business workflow, end to end through the gateway.
+test_workflow.py - the business workflow, end to end through the gateway.
 
 Log in, list assets, raise an incident against one, read it back, escalate its
 severity. Every request goes to the gateway on `localhost:8000`; no service
-port is touched. This is the same sequence `client/demo_workflow.py` runs on
-camera, asserted here so a regression fails a test rather than a demo.
+port is touched. This is the same sequence `client/demo_workflow.py` runs as a
+quick demo, asserted here so a regression fails a test rather than a demo.
 
 Author: Colile
 """

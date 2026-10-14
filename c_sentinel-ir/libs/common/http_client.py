@@ -1,7 +1,7 @@
 """
 http_client.py - the only sanctioned way one service calls another.
 
-Implements the second marked pattern, Circuit Breaker with Retry
+Implements the second architectural pattern, Circuit Breaker with Retry
 (`docs/patterns.md` section 2). Two layers, and the order of nesting is the
 whole design:
 
@@ -57,8 +57,8 @@ class ResilientClient:
     Purpose: call one downstream service with retry-with-backoff and a circuit
              breaker in front of it. One instance guards one dependency, and it
              must be long-lived: a breaker constructed per call counts to one
-             and never opens, which still passes a happy-path demo and loses the
-             pattern mark.
+             and never opens, which still passes a happy-path demo and protects
+             nothing.
     Inputs:  service_name - the calling service, named as the emitter of the
              resilience events. base_url - the dependency's root URL.
              dependency - the dependency's name, for events and logs.

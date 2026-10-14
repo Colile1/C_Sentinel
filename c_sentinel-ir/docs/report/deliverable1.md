@@ -61,8 +61,7 @@ the cross-service call together.
 `libs/common/http_client.py` — this single field is the evidence, in a live response, of both
 marked patterns at once: it exists because the databases are separate (pattern 1) and it was
 fetched through the retry/circuit-breaker wrapper (pattern 2). Screenshots of this exchange
-executed live (gateway, terminal and Consul side by side) are in `docs/evidence/` and referenced in
-the demo script.
+executed live (gateway, terminal and Consul side by side) are in `docs/evidence/`.
 
 ## 3. Architecture
 

@@ -7,7 +7,7 @@ Checks, in order and without changing anything:
   3. every Prometheus scrape target is UP;
   4. the gateway answers on localhost:8000.
 
-Run it before recording, not during. It prints one `Description: value` line
+Run it after start-up to confirm the stack is ready. It prints one `Description: value` line
 per check and an all-green summary, and exits non-zero if any check fails.
 
     python scripts/verify_stack.py

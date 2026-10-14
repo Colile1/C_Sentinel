@@ -31,7 +31,7 @@ def test_exactly_the_five_demonstrated_queries_are_defined():
 
 
 def test_every_query_file_opens_with_its_question():
-    """The demo narration is "read the file", so each opens with a `// Question:`
+    """Each query documents itself, so each opens with a `// Question:`
     line."""
     for query in QUERIES:
         text = query.text()

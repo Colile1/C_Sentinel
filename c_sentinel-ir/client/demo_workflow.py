@@ -1,15 +1,15 @@
 """
-demo_workflow.py - the complete marked business workflow, from the client.
+demo_workflow.py - a quick end-to-end demo of the business workflow, from the client.
 
-Twenty-five percent of Deliverable 1 is that the system performs its business
-functionality *from a client*. This script is that client run end to end:
+It exercises the system the way any API consumer would, from outside, through
+the gateway, and is the fastest way to confirm a deployment works:
 
     log in -> list assets -> raise an incident against one -> read it back
     -> escalate its severity
 
 Every request goes to `http://localhost:8000`, the gateway, and each step
 prints the full URL it called and the correlation id returned, so the output
-is itself the evidence the submission sheet asks for. One correlation id is
+shows exactly which route each request took. One correlation id is
 used for the whole run and can be grepped out of all three services' logs.
 
 Run it against a freshly started stack:
@@ -27,6 +27,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from api_client import ApiClient  # noqa: E402
+from common.deploy_env import load_deploy_env  # noqa: E402
+
+load_deploy_env()
 
 # The bootstrap admin auth-service seeds at startup. The password must match
 # BOOTSTRAP_ADMIN_PASSWORD in deploy/.env; it is read from the environment here

@@ -164,7 +164,7 @@ at build step 12**. Passing against data written for the test proves less than p
 the system actually produced.
 
 Captured output: [docs/evidence/step15-detection-run.txt](../evidence/step15-detection-run.txt).
-**89 unit tests** cover `soc/`, none needing a container, a network or a database.
+**94 unit tests** cover `soc/`, none needing a container, a network or a database.
 
 ## Where the alerts go next
 

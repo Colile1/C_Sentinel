@@ -21,6 +21,10 @@ from typing import Any
 
 from neo4j import Driver, GraphDatabase
 
+from common.deploy_env import load_deploy_env
+
+load_deploy_env()
+
 _DEFAULTS = {
     "NEO4J_URI": "bolt://localhost:7687",
     "NEO4J_USER": "neo4j",

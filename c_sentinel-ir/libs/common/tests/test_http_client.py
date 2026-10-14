@@ -5,7 +5,7 @@ test_http_client.py - build step 8's verification, the resilience pattern.
 a transient failure is retried and then succeeds, and consecutive failures open
 the breaker, return the fallback, and log the state change. The dangerous
 failure mode for this step is a breaker that never opens - it passes every
-happy-path test and loses the pattern mark - so the tests assert the state
+happy-path test and protects nothing - so the tests assert the state
 itself, not only the returned value.
 
 No socket is opened: `httpx.get` is replaced by a handler the test controls,

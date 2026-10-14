@@ -15,7 +15,7 @@ The demonstrated queries. The specification requires at least five, implemented 
 | `graph_service.py` | A thin FastAPI service: `GET /api/v1/graph/queries` lists the catalogue, and one GET endpoint per query. Reads Neo4j through `kg.loader.connection.run_query`; no database of its own, no Consul (D-30) | **built at step 18** |
 
 Each `.cypher` file opens with a `// Question:` line stating what it answers in plain English — the
-demo narration is then a matter of reading the file.
+file documents itself.
 
 ## Running
 

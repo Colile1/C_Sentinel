@@ -4,7 +4,7 @@ queries.py - the five demonstrated queries, loaded from their .cypher files.
 Each `.cypher` file is the source of truth for its query text and opens with the
 plain-English question it answers. This module names them, records which
 parameters each takes, and reads the file - so `graph_service.py` and the tests
-share one definition and the demo narration is "open the file".
+share one definition and each query documents itself.
 
 Author: Colile
 """

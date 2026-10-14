@@ -24,6 +24,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from api_client import ApiClient  # noqa: E402
+from common.deploy_env import load_deploy_env  # noqa: E402
+
+load_deploy_env()
 
 TARGET_USERNAME = os.environ.get("BOOTSTRAP_ADMIN_USERNAME", "admin")
 WRONG_PASSWORD = "not-the-password"

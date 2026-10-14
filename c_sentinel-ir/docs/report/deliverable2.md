@@ -47,7 +47,7 @@ the Pydantic model, so the two cannot drift.
                                     ▼
                       ┌───────────────────────────┐      ┌──────────────────────┐
                       │ kg/loader → Neo4j         │◀─────│ MITRE ATT&CK         │
-                      │ 12 labels, 14 rel. types  │      │ T1110, T1078, …      │
+                      │ 12 labels, 15 rel. types  │      │ T1110, T1078, …      │
                       └────────────┬──────────────┘      └──────────────────────┘
                                    │  5 Cypher queries (kg/cypher)
                                    ▼
@@ -61,7 +61,7 @@ Three things about this shape are worth stating, because each was a decision rat
 
 **The layers are one-directional and each is a pure function of the one before it.** A rule is a
 pure function of the event store's contents and an injected clock; a loader is a pure function
-returning a list of writes; a retriever shapes rows. Nothing reaches backwards. This is why 545 unit
+returning a list of writes; a retriever shapes rows. Nothing reaches backwards. This is why 551 unit
 tests run with no container, no network and no database — the only components that need a server are
 the ones that genuinely talk to Neo4j, and those tests are marked `neo4j` and skip cleanly without
 one.
@@ -154,7 +154,7 @@ events that caused it, always.
 ## 6. The knowledge graph
 
 The model is documented in full at [kg/model/graph_model.md](../../kg/model/graph_model.md): **12
-node labels and 14 relationship types**, covering every label §4.1 requires and every relationship
+node labels and 15 relationship types**, covering every label §4.1 requires and every relationship
 §4.2 lists. `schema.cypher` puts a uniqueness constraint on each label's natural key, and a test
 cross-checks the document, the Python model and the loaders against each other so the diagram cannot
 drift from the code.
@@ -175,8 +175,9 @@ therefore testable with no database, and **reloading is idempotent**: `load_even
 re-keys alerts onto a content hash (D-32), so two consecutive loads produce 65 nodes and 130 edges,
 not double.
 
-**Verified live** against Neo4j 5.22: 12 labels present, the real dependency edge returned by a
-topology query, and a failed-login alert reaching a control in three hops —
+**Verified live** against Neo4j 5.22: 11 of the 12 labels populated (`Incident` is constrained in
+the schema but holds no nodes; see §9), the real dependency edge returned by a topology query, and
+a failed-login alert reaching a control in three hops —
 `(:Alert)-[:INDICATES]->(:Threat)<-[:MITIGATES]-(:Control)`.
 
 **Five Cypher queries** (`kg/cypher/q1..q5`) are demonstrated, each opening with the plain-English
@@ -226,8 +227,7 @@ python scripts/run_security_workflow.py
 Four stages, stopping at the first failure: the attack as collected events → the rules raise 5
 alerts → the events and alerts are loaded into Neo4j and linked → the RAG interface is asked why the
 alert was created and answers with its evidence. The captured run is at
-[docs/evidence/step20-security-workflow.txt](../evidence/step20-security-workflow.txt); the narrated
-version is [phase2-demo-script.md](phase2-demo-script.md).
+[docs/evidence/step20-security-workflow.txt](../evidence/step20-security-workflow.txt).
 
 This is the traceability the specification asks for, and each link is visible in that one run:
 
@@ -250,9 +250,18 @@ Stated plainly, because the specification marks the explanation of limitations:
   reproducible from `scripts/capture_attack_evidence.py`, and its live twin exists
   (`client/failed_login_demo.py` plus the gateway burst in `tests/integration`), but staging a real
   attack on camera makes a recording depend on timing that cannot be rehearsed.
-- **`Incident` nodes are loaded only when incident events are present.** The attack capture is an
-  authentication and availability story, so `(:Incident)-[:CONTAINS]->(:Alert)` is modelled and
-  loadable but not exercised by the demonstrated scenario.
+- **`Incident` nodes and `CONTAINS` edges are modelled but not populated.** The label is in the
+  model and carries a uniqueness constraint in `schema.cypher`, but no loader writes it, so the live
+  graph holds no `Incident` nodes and the question "which incidents are linked to repeated failed
+  logins?" cannot yet be answered. The next step is a loader that turns `INCIDENT_CREATED` events
+  into `Incident` nodes and links each to the alerts that share its correlation ID or affected
+  entity. `Asset` nodes are loaded from the register but are not yet linked to anything.
+- **Health information arrives as events, not as health-check data.** Service health reaches the
+  SOC layer through the circuit breaker's `CIRCUIT_OPENED`, `DEPENDENCY_FAILURE` and
+  `SERVICE_ERROR` events, which Rule 4 reads. The health checks themselves (Consul's `/health`
+  polling, Docker's container health, Prometheus's `up` metric) are visible in Consul and Grafana
+  but are not ingested by the collector, so a service that fails its health check without a caller
+  noticing raises no alert.
 
 ## 10. Evidence index
 
@@ -266,7 +275,7 @@ Stated plainly, because the specification marks the explanation of limitations:
 | RAG answers — six question types, both refusals | [step19-rag-answers.txt](../evidence/step19-rag-answers.txt) |
 | The complete workflow, one pass | [step20-security-workflow.txt](../evidence/step20-security-workflow.txt) |
 
-**Tests:** 546 unit tests, 0 failures, none requiring a container, a network or a database — of
+**Tests:** 551 unit tests, 0 failures, none requiring a container, a network or a database — of
 which 16 are `neo4j`-marked, passing against a live server and skipping cleanly without one. Run
-per suite: libs + contract 196, soc 89, kg 42, rag 77, auth 67, incident 39,
+per suite: libs + contract 196, soc 94, kg 42, rag 77, auth 67, incident 39,
 asset 36.

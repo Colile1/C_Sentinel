@@ -3,8 +3,8 @@ test_grounding.py - the step-19 verification: every claim maps to displayed
 evidence.
 
 This is the file the build order's step-19 row is asking for. The others test
-that the pipeline works; this one tests the property the specification actually
-marks - that the answer contains no fact which is not present in the retrieved
+that the pipeline works; this one tests the property that matters most -
+that the answer contains no fact which is not present in the retrieved
 evidence, and that the evidence is displayed alongside it.
 
 The check is mechanical rather than a reading: every capitalised identifier,
@@ -175,7 +175,7 @@ def test_the_evidence_block_shows_the_relationships_not_only_the_nodes(
 ):
     """
     Purpose: a relationship is displayed in the arrow notation the `.cypher`
-             files use, so the marker can trace the path the answer walked.
+             files use, so a reader can trace the path the answer walked.
     Inputs:  the q4 fixture rows.
     Output:  assertions.
     """
@@ -201,7 +201,7 @@ def test_a_missing_property_is_omitted_not_printed_as_none(
     Purpose: the graph does not carry every optional property - a User loaded
              from an event stream has no `role`. A template reading one must
              leave it out, not print Python's `None` into the answer, which
-             would read to a marker as a claim that the value is null.
+             would read as a claim that the value is null.
     Inputs:  each question, with every optional column of its row emptied.
     Output:  assertions.
     """

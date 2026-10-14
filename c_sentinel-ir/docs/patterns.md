@@ -1,12 +1,11 @@
 # The two microservices patterns
 
-The mark schedule awards 10% for at least two valid patterns, implemented *and* explained, and
-states plainly that the API Gateway cannot be counted. The submission sheet goes further: the demo
-must show the code or configuration **and** proof the pattern actually works in the application.
+Two microservices patterns are implemented, each with its code or configuration **and** a quick
+way to see it working in the running application. The API Gateway is deliberately not counted
+among them: it is infrastructure the patterns rely on, not one of the patterns.
 
-This project claims two. Both are chosen because they can be *proven on camera in under ninety
-seconds*, which is a real selection criterion when the alternative is a pattern the marker has to
-take on trust.
+Both are chosen because they can be *proven in a running system in under ninety seconds*, which is a
+real selection criterion when the alternative is a pattern that has to be taken on trust.
 
 To be completed as each is built — the structure below is the specification for what each section
 must contain.
@@ -65,7 +64,7 @@ commonly got wrong:
 3. **The client is long-lived**, cached per dependency URL in `asset_gateway._client_for`. The
    breaker's failure count *is* the pattern's state; a client rebuilt per call counts to one, never
    reaches its threshold, and never opens — which still passes a happy-path demo while quietly
-   losing the mark.
+   providing no protection at all.
 
 **Where the code is.** `libs/common/http_client.py` (the calling policy) and
 `libs/common/circuit_events.py` (the events); the fallback and the only call site in
@@ -82,7 +81,7 @@ becomes the system's outage. This is the fault isolation the non-functional requ
 client. The first attempt retries visibly and returns the degraded response; the next few return
 instantly, and `CIRCUIT_OPENED` appears in the log. Restart the service, wait out the reset timeout,
 and `CIRCUIT_CLOSED` appears. Fast responses after a slow one is the observable signature of an open
-breaker, and it is worth saying that out loud on camera.
+breaker, and it is the thing to watch for when testing it.
 
 That contrast is already captured offline, reproducible without Docker by
 `python scripts/capture_breaker_evidence.py`, and committed as
@@ -115,5 +114,5 @@ fails if retry is ever nested outside the breaker.
 
 Health checks, centralised structured logging, and application metrics are all built (see
 `observability/`). They are supporting observability and are discussed in the report, but the two
-patterns claimed for the 10% are the two above — a claim the marker can verify beats a longer list
-they cannot.
+architectural patterns are the two above — a short list anyone can verify beats a longer one they
+cannot.

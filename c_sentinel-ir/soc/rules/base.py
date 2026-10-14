@@ -4,7 +4,7 @@ base.py - the interface every detection rule implements.
 A rule is a pure function of the event store's contents and a clock. It owns no
 state, opens no connection and reads no wall clock of its own: `evaluate(store,
 now)` is given the moment to reason from, which is what makes a scripted attack
-reproducible in a test and on camera.
+reproducible in a test and in a demo.
 
 The specification requires seven things documented per rule - name, purpose,
 input events, detection logic, severity, generated alert and response action.

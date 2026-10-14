@@ -1,9 +1,9 @@
-# Centralised logging - the exact commands used on camera
+# Centralised logging - ready-to-run queries
 
 Every service writes one JSON object per line to stdout through
 `libs/common/logging.py`. Docker collects stdout, so `docker compose logs` is
 already a single view across all services - no Seq, no ELK, no Loki container to
-keep healthy on camera. Operational lines carry `level`, `service`, `timestamp`,
+keep healthy. Operational lines carry `level`, `service`, `timestamp`,
 `message`, `correlationId`; security-relevant lines are a full `SecurityEvent`
 and additionally carry `eventType`, which is the field Phase 2's collector
 filters on.

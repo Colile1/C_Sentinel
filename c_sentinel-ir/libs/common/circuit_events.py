@@ -5,8 +5,8 @@ Split from `http_client.py` so that file holds the calling policy and this one
 holds the Phase 2 contract. Every breaker state change and every exhausted call
 becomes a `SecurityEvent`, because `docs/soc-events.md` promises Rule 4 a
 `DEPENDENCY_FAILURE` per failed request and a `CIRCUIT_OPENED` / `CIRCUIT_CLOSED`
-pair per state change. A breaker that opens silently still loses the pattern
-mark, so the events are not optional decoration - they are the evidence.
+pair per state change. A breaker that opens silently is invisible to the SOC
+layer, so the events are not optional decoration - they are the evidence.
 
 Author: Colile
 """

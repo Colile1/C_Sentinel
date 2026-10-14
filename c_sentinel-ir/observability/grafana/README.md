@@ -1,7 +1,7 @@
 # observability/grafana/
 
 Grafana provisioning — datasource and dashboard as code, so the dashboard survives a container
-rebuild and can be committed and marked.
+rebuild and lives in version control.
 
 | File | Responsibility |
 |------|----------------|

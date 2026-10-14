@@ -67,7 +67,6 @@ later.
 
 ## Why this matters in Phase 1
 
-The mark schedule gives 5% for a design that produces useful data for later SOC monitoring and
-knowledge-graph expansion. That mark is earned by this file and by the fact that every service
-already obeys it — not by promising to add logging later. In the demo, this schema is the answer to
-"explain how you are capturing security events".
+This schema is what makes the data useful for SOC monitoring and knowledge-graph analysis: every
+service already obeys it, so the collector, the detection rules and the graph loader consume the
+stream with no translation layer. It is the short answer to "how are security events captured?".

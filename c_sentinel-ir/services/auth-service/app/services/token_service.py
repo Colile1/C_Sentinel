@@ -5,7 +5,7 @@ auth-service is the only issuer. The gateway validates these same tokens itself
 against the shared secret at build step 10, so the claim set here is a contract
 with `gateway/kong.yml` as much as with this service: `iss` is what Kong's JWT
 plugin matches against its credential key, and `sub`, `role` and `exp` are what
-the services and the mark schedule require.
+the services require.
 
 Pure: settings in, string out. No database, no HTTP, no FastAPI, and the clock
 is injectable so expiry is unit-testable without waiting an hour.
@@ -33,7 +33,7 @@ class TokenClaims(BaseModel):
     Inputs:  the claims below, as they appear in the token.
     Output:  an immutable claims object. `sub` is the username, not the row id,
              because it is what the event stream's `userId` carries and what a
-             marker reading a log line can recognise.
+             person reading a log line can recognise.
     """
 
     model_config = ConfigDict(frozen=True)

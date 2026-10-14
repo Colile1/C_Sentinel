@@ -5,7 +5,7 @@ Split out of `auth_service.py`, which was doing two jobs: proving who someone
 is, and administering who exists. Authentication runs on every login and is the
 security-critical path; account management is a rare admin-only operation.
 Keeping them apart means a change to one cannot disturb the other, and both
-files stay inside the size limit in CLAUDE.md section 4.
+files stay inside the project's file-size limit.
 
 Pure business logic: a repository in, domain objects out. No FastAPI.
 

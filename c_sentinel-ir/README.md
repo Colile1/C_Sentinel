@@ -56,16 +56,22 @@ retrofit, no restructuring.
 cp deploy/.env.example deploy/.env
 docker compose -f deploy/docker-compose.yml up --build -d
 docker compose -f deploy/docker-compose.yml ps        # every service healthy
-export $(grep -E '^BOOTSTRAP_ADMIN' deploy/.env | xargs)   # seed_data.py and demo_workflow.py
-python scripts/seed_data.py                            #   read these from the environment
+python scripts/seed_data.py                            # reads deploy/.env itself
 python client/demo_workflow.py                         # login -> raise incident -> link asset
 open http://localhost:8500                             # Consul: registered instances
 open http://localhost:3901                             # Grafana: request and auth metrics
 ```
 
-On Windows, `setup.bat` / `start.bat --seed` / `stop.bat` (repository root) are a quick alternative
-that runs the same steps end to end and prints the generated admin, Grafana and Neo4j login at the
-end of their output — a faster path to the same result, not a replacement for the commands above.
+On Windows, `setup.bat` then `start.bat` (in `c_sentinel-ir/`) take a fresh machine to a system ready
+to demonstrate: `setup.bat` rebuilds a broken `.venv`, installs `requirements.lock.txt` and
+`libs/common`, and generates `deploy/.env`; `start.bat` starts the stack, waits until every check in
+`verify_stack.py` passes, seeds the demo data, and reloads the Neo4j graph from the committed attack
+capture. `start.bat --workflow` also runs the business workflow once; `stop.bat` stops the stack.
+Both print the generated admin, Grafana and Neo4j logins at the end.
+
+The host-side scripts (seed, clients, integration tests, graph loader, RAG) read `deploy/.env`
+themselves through `libs/common/deploy_env.py`; a variable already exported in the shell still
+wins.
 
 Run the tests:
 
@@ -80,7 +86,7 @@ Every demonstrated result is reproducible from three things: the committed
 `deploy/docker-compose.yml`, the pinned `requirements.txt`, and the commit hash. Service
 configuration comes only from environment variables declared in `deploy/.env.example` — no hidden
 local state, no manually created database rows. `scripts/seed_data.py` is the single source of demo
-data, and `client/demo_workflow.py` reproduces the marked workflow end to end in one command.
+data, and `client/demo_workflow.py` reproduces the business workflow end to end in one command.
 
 ## License
 

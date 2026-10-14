@@ -2,7 +2,8 @@
 registry.py - Consul self-registration and clean deregistration.
 
 Each service registers itself with Consul at startup, not from a static file,
-because the marker wants to watch instances appear in the UI (registry/README).
+so instances appear and disappear in the UI as services start and stop
+(registry/README).
 The registration carries an HTTP health check pointing at the service's own
 /health, which Consul then polls.
 
