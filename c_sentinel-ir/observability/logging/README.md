@@ -4,7 +4,7 @@ The centralised logging contract and the commands used to demonstrate it.
 
 | File | Responsibility |
 |------|----------------|
-| `log_query_examples.md` | The exact shell commands run on camera: follow all services, filter one correlation ID across services, filter `AUTH_FAILED` events, show a circuit-breaker state change |
+| `log_query_examples.md` | Ready-to-run shell commands: follow all services, filter one correlation ID across services, filter `AUTH_FAILED` events, show a circuit-breaker state change |
 
 ## The contract
 

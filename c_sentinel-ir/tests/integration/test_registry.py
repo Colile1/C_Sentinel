@@ -1,8 +1,8 @@
 """
 test_registry.py - all three services are registered in Consul and healthy.
 
-The mark schedule asks for evidence the registry holds the running instances
-with their addresses and passing checks. This asserts it.
+The registry must hold the running instances with their addresses and
+passing checks. This asserts it.
 
 Author: Colile
 """

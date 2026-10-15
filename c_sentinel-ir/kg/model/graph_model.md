@@ -2,7 +2,8 @@
 
 The Neo4j security knowledge graph. Twelve node labels over three sources of knowledge —
 what the application **is**, what **happened** in it, and what is **known** about the
-threats those happenings suggest — connected by fourteen relationship types.
+threats those happenings suggest — connected by fifteen relationship types: the fourteen the
+specification lists, plus `SUBTECHNIQUE_OF` for the MITRE sub-techniques.
 
 This document and [`graph_model.py`](graph_model.py) are the same model. The loaders in
 `kg/loader/` build exactly the labels and relationships listed here; `schema.cypher` puts a
@@ -14,13 +15,13 @@ drift between the three.
 | Label | Natural key | Key properties | Source | Participates in |
 |-------|-------------|----------------|--------|-----------------|
 | `User` | `username` | `username`, `role` | topology (from auth-service accounts) | `-[:TRIGGERED]->(:Event)`, `-[:HAS_ROLE]->(:Role)` |
-| `Role` | `name` | `name` | topology | `(:User)-[:HAS_ROLE]->`, `(:Document)` n/a |
+| `Role` | `name` | `name` | topology | `(:User)-[:HAS_ROLE]->` |
 | `Service` | `name` | `name`, `port`, `description` | topology (Compose + registry) | `-[:DEPENDS_ON]->(:Service)`, `-[:EXPOSES]->(:Endpoint)`, `(:Event)-[:GENERATED_BY]->`, `(:Threat)-[:TARGETS]->` |
 | `Endpoint` | `path` | `path`, `method`, `protected` | topology (gateway routes) | `(:Service)-[:EXPOSES]->`, `(:Event)-[:TARGETED]->` |
 | `Asset` | `name` | `name`, `assetType`, `criticality` | topology (asset-service register) | — (held for completeness of the application picture) |
 | `Event` | `eventId` | every key in `docs/soc-events.md` | events (`soc/collector`) | `(:User)-[:TRIGGERED]->`, `-[:GENERATED_BY]->(:Service)`, `-[:TARGETED]->(:Endpoint)`, `-[:CREATED_ALERT]->(:Alert)` |
 | `Alert` | `alertId` | every key in the alert schema | events (`soc/alert_service`) | `(:Event)-[:CREATED_ALERT]->`, `-[:INDICATES]->(:Threat)`, `(:Incident)-[:CONTAINS]->` |
-| `Incident` | `incidentId` | `incidentId`, `title`, `severity`, `status` | events (incident-service, optional) | `-[:CONTAINS]->(:Alert)` |
+| `Incident` | `incidentId` | `incidentId`, `title`, `severity`, `status` | events (incident-service) — **modelled, not yet loaded** | `-[:CONTAINS]->(:Alert)` |
 | `Threat` | `techniqueId` | `techniqueId`, `name`, `tactic`, `description` | security knowledge (MITRE ATT&CK) | `(:Alert)-[:INDICATES]->`, `-[:TARGETS]->(:Service)`, `-[:EXPLOITS]->(:Vulnerability)`, `-[:SUBTECHNIQUE_OF]->(:Threat)`, `(:Control)-[:MITIGATES]->`, `(:Document)-[:SUPPORTS_RESPONSE_TO]->` |
 | `Control` | `controlId` | `controlId`, `name`, `description` | security knowledge | `-[:MITIGATES]->(:Threat)`, `(:Document)-[:DESCRIBES]->` |
 | `Vulnerability` | `vulnId` | `vulnId`, `name`, `description` | security knowledge | `(:Threat)-[:EXPLOITS]->` |
@@ -36,7 +37,7 @@ drift between the three.
 (:Alert)-[:INDICATES]->(:Threat)                the ATT&CK technique the alert's rule detects
 (:Threat)-[:TARGETS]->(:Service)                the service the technique is aimed at
 (:Threat)-[:EXPLOITS]->(:Vulnerability)         the weakness the technique relies on
-(:Threat)-[:SUBTECHNIQUE_OF]->(:Threat)         a MITRE sub-technique to its parent (T1110.00x -> T1110)
+(:Threat)-[:SUBTECHNIQUE_OF]->(:Threat)         a MITRE sub-technique to its parent technique
 (:Control)-[:MITIGATES]->(:Threat)              a countermeasure against the technique
 (:Incident)-[:CONTAINS]->(:Alert)               an incident groups the alerts under it
 (:Service)-[:DEPENDS_ON]->(:Service)            the real incident-service -> asset-service call

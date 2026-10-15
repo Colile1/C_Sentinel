@@ -21,6 +21,10 @@ echo.
 rem --- 1. prerequisites ------------------------------------------------------
 where docker >nul 2>&1
 if errorlevel 1 (
+    if exist "%ProgramFiles%\Docker\Docker\resources\bin\docker.exe" set "PATH=%ProgramFiles%\Docker\Docker\resources\bin;%PATH%"
+)
+where docker >nul 2>&1
+if errorlevel 1 (
     echo [ERROR] Docker not found on PATH. Install Docker Desktop and re-run.
     exit /b 1
 )
@@ -44,8 +48,20 @@ if errorlevel 1 (
 echo [ok] Python found (%PY%).
 
 rem --- 2. virtual environment --------------------------------------------------
+rem A .venv copied from another machine points at a Python that is not here,
+rem so its python.exe exists but cannot start. Rebuild it rather than reuse it.
 if exist ".venv\Scripts\python.exe" (
-    echo [ok] .venv already exists - reusing it.
+    ".venv\Scripts\python.exe" --version >nul 2>&1
+    if errorlevel 1 (
+        echo [..] .venv is broken ^(built on another machine^) - rebuilding it ...
+        %PY% -m venv --clear .venv
+        if errorlevel 1 (
+            echo [ERROR] Failed to rebuild .venv.
+            exit /b 1
+        )
+    ) else (
+        echo [ok] .venv already exists - reusing it.
+    )
 ) else (
     echo [..] Creating .venv ...
     %PY% -m venv .venv
@@ -55,11 +71,20 @@ if exist ".venv\Scripts\python.exe" (
     )
 )
 
-echo [..] Upgrading pip and installing requirements.txt (this can take a few minutes) ...
+rem The lock file, not requirements.txt: the same pinned versions the Docker
+rem images install, so the host scripts and the containers agree.
+echo [..] Upgrading pip and installing requirements.lock.txt (this can take several minutes) ...
 ".venv\Scripts\python.exe" -m pip install --upgrade pip >nul
-".venv\Scripts\python.exe" -m pip install -r requirements.txt
+".venv\Scripts\python.exe" -m pip install -r requirements.lock.txt
 if errorlevel 1 (
-    echo [ERROR] Dependency install failed.
+    echo [ERROR] Dependency install failed. Re-run setup.bat; pip resumes where it stopped.
+    exit /b 1
+)
+rem libs\common as an editable package, so `import common` works from every
+rem script, CLI and test run on the host.
+".venv\Scripts\python.exe" -m pip install --no-deps -e .
+if errorlevel 1 (
+    echo [ERROR] Installing libs\common failed.
     exit /b 1
 )
 echo [ok] Python dependencies installed.

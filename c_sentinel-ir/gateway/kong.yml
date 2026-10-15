@@ -12,7 +12,7 @@
 # under /api/v1/auth cannot. That split is the whole reason this file is not
 # three services and three routes.
 #
-# What the marker is shown (gateway/README.md, build step 10):
+# What can be observed from outside (gateway/README.md):
 #   - every endpoint in docs/api.md answers on :8000;
 #   - no token to a protected route -> 401 raised HERE, upstream log silent;
 #   - over the rate limit -> 429;
@@ -189,7 +189,7 @@ plugins:
   # which is where a brute-force attempt actually lands, and what Phase 2's
   # Rule 3 needs to see. Counters live in the Kong node's memory, which is what
   # DB-less mode supports and is sufficient for a single-node demo stack.
-  # 60/minute is deliberately low enough to trip on camera with a short loop.
+  # 60/minute is deliberately low enough to trip with a short test loop.
   - name: rate-limiting
     config:
       minute: 60

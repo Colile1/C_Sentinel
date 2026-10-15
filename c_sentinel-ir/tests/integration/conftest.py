@@ -25,6 +25,10 @@ from pathlib import Path
 import httpx
 import pytest
 
+from common.deploy_env import load_deploy_env
+
+load_deploy_env()
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COMPOSE_FILE = "deploy/docker-compose.yml"
 # Kong's rate-limit window is a minute; allow a little over one full window for

@@ -9,7 +9,7 @@ anywhere else in this service is a defect: it bypasses the breaker.
 The client is cached per asset-service URL and lives for the life of the
 process. That is not an optimisation - a breaker rebuilt on each call counts
 one failure, never reaches its threshold and never opens, which is precisely
-the silent failure `CLAUDE.md` section 7 flags for this step.
+the silent failure that passes every check except a real outage.
 
 Author: Colile
 """

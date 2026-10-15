@@ -4,7 +4,7 @@ evidence.py - the structured retrieval result, and how it is displayed.
 The specification requires four things to be shown alongside every answer: the
 retrieved nodes, the retrieved relationships, the source documents, and an
 explanation of the retrieval method. `Evidence` holds exactly those four, and
-`render()` prints them under those four headings - so a marker checking whether
+`render()` prints them under those four headings - so a reader checking whether
 a claim is grounded has one block to read.
 
 An `EvidenceNode` carries its label, its key and the properties the query

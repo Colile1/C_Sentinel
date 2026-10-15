@@ -2,7 +2,7 @@
 database.py - auth-service's own database engine, session factory and probe.
 
 This service holds exactly one connection string, its own `auth_db`, and never
-another service's - the Database-per-Service pattern claimed for the mark. The
+another service's - the Database-per-Service pattern. The
 engine is built lazily so the process can start and answer /health/live before
 auth-db is up, and `database_reachable` is what /health calls to report whether
 it answers.

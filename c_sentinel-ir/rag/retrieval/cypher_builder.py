@@ -2,7 +2,7 @@
 cypher_builder.py - an intent becomes a parameterised query.
 
 Every intent maps onto one of the five queries already demonstrated in
-`kg/cypher`. That reuse is deliberate: the queries the marker sees run at step
+`kg/cypher`. That reuse is deliberate: the queries demonstrated at step
 18 are the same queries the RAG layer runs at step 19, so there is one set of
 Cypher to explain, not two, and a query cannot drift away from the one that was
 verified.

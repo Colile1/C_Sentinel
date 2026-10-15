@@ -56,7 +56,7 @@ def supported_questions() -> list[str]:
 
 
 #: The rule whose alerts the Phase 2 specification's demonstration scenario
-#: narrates - repeated failed logins through to a credential-attack answer.
+#: follows - repeated failed logins through to a credential-attack answer.
 #: `--demo` prefers one of these so the demonstrated answer tells that story.
 DEMO_RULE_NAME = "Multiple Failed Logins"
 

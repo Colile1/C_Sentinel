@@ -2,7 +2,7 @@
 templates.py - one answer template per intent, every slot from a retrieved node.
 
 Template generation is the project's chosen path (D-34). It is explicitly
-acceptable to the specification and fully marked, and it has the property an
+acceptable to the specification, and it has the property an
 LLM cannot offer: it is incapable of hallucinating, because there is no slot in
 any sentence below that is not read out of an `EvidenceNode`. Nothing here
 consults outside knowledge, and nothing here is written from a model's memory of

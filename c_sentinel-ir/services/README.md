@@ -3,8 +3,8 @@
 The three independently deployable domain services. Each has its own folder, its own Dockerfile, its
 own database, and its own README specifying the files inside it.
 
-There are exactly three. A fourth service is a design change requiring a `DECISIONS.md` entry —
-see the fixed-design guard in `CLAUDE.md` section 2.
+There are exactly three. A fourth service is a design change: the service list is fixed by the
+project specification.
 
 | Service | Port (direct) | Owns | Calls |
 |---------|---------------|------|-------|
@@ -42,5 +42,5 @@ module cannot import from its own `conftest.py`, so shared helpers are exposed a
 ## The rule that must never be broken
 
 No service may read another service's database. Cross-service data travels over HTTP through the
-gateway or through `ResilientClient`. This is the Database-per-Service pattern claimed for the mark,
-and a single cross-schema query destroys the claim.
+gateway or through `ResilientClient`. This is the Database-per-Service pattern, and a single cross-schema
+query would break it.

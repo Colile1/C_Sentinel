@@ -2,8 +2,7 @@
 database.py - incident-service's own database engine, session factory and probe.
 
 This service holds exactly one connection string, its own `incident_db`, and
-never another service's - the Database-per-Service pattern claimed for the
-mark. The engine is created lazily so the process can start (and answer
+never another service's - the Database-per-Service pattern. The engine is created lazily so the process can start (and answer
 /health/live) even when incident-db is not yet up, and `database_reachable` is
 what /health calls to report whether incident-db answers.
 

@@ -1,11 +1,11 @@
 # registry/
 
-Service discovery. Ten percent of the Deliverable 1 mark, and the submission sheet asks for the
-registry to be opened on camera showing registered service instances *and their addresses*.
+Service discovery. Consul holds every running service instance *and its address*, and its UI shows
+them live.
 
 Consul runs as its own container. Each service registers itself at startup and deregisters on clean
 shutdown, using `libs/common/registry.py` — the registration is done by the service, not by a
-static configuration file, because the marker wants to see instances appear.
+static configuration file, so instances appear and disappear as services start and stop.
 
 ## Planned files
 
@@ -14,7 +14,7 @@ static configuration file, because the marker wants to see instances appear.
 | `consul-config.json` | Consul agent configuration: datacenter, UI enabled, health-check interval and deregistration timeout |
 | `README.md` | This specification, and the explanation of discovery the demo needs |
 
-## How discovery works here — the explanation the mark asks for
+## How discovery works
 
 1. Each service starts, reads its `SERVICE_NAME`, host and port from its environment, and calls
    `PUT /v1/agent/service/register` on Consul with a health-check definition pointing at its own
@@ -28,8 +28,8 @@ static configuration file, because the marker wants to see instances appear.
    whether they are healthy*. Both mechanisms are named in the report, because the specification
    accepts Docker Compose service discovery and Consul alike and asks the student to explain what is
    actually happening rather than gesture at it.
-5. On shutdown the service deregisters, and the instance disappears from the UI — worth showing on
-   camera immediately after `docker compose stop asset-service`.
+5. On shutdown the service deregisters, and the instance disappears from the UI — easy to see by
+   running `docker compose stop asset-service` with the UI open.
 
 ## Integration
 

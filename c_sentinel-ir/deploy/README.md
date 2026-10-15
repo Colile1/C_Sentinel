@@ -1,8 +1,7 @@
 # deploy/
 
-Everything needed to run the whole system with one command. Fifteen percent of Deliverable 1 is that
-services are *independently containerised*, and the submission sheet asks for proof on camera that
-Docker hosts them — separate containers, separate images, separate lifecycles.
+Everything needed to run the whole system with one command. Every service is *independently
+containerised* — separate containers, separate images, separate lifecycles.
 
 ## Files
 
@@ -22,19 +21,19 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml build
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml ps
 python scripts/seed_data.py                 # demo users and assets, through the gateway
-python client/demo_workflow.py              # the marked business workflow
+python client/demo_workflow.py              # the business workflow, end to end
 ```
 
-`scripts/seed_data.py` and the clients read `BOOTSTRAP_ADMIN_USERNAME` / `BOOTSTRAP_ADMIN_PASSWORD`
-from the environment (defaulting to `admin` / a placeholder), so export the same values you put in
-`deploy/.env`, or run them with `--env-file` semantics, before seeding:
+`scripts/seed_data.py`, the clients, the integration tests and the graph loader read
+`BOOTSTRAP_ADMIN_*` and `NEO4J_*` from `deploy/.env` themselves (`libs/common/deploy_env.py`), so no
+export is needed. A value already exported in the shell overrides the file, for example:
 
 ```
 export $(grep -E '^BOOTSTRAP_ADMIN' deploy/.env | xargs)
 ```
 
-The repository-root `setup.bat` / `start.bat --seed` / `stop.bat` are a quick alternative for
-Windows that runs the same steps end to end and prints the generated admin, Grafana and Neo4j
+`setup.bat` / `start.bat` / `stop.bat` in `c_sentinel-ir/` are a quick alternative for Windows:
+`start.bat` starts the stack, waits for health, seeds and reloads the Neo4j graph, and prints the generated admin, Grafana and Neo4j
 credentials at the end of their output every time — a faster path to the same result, not a
 replacement for the commands above.
 
@@ -87,9 +86,9 @@ to Consul under its Compose service name so the health check and Kong both resol
 
 **Why three database containers.** Settled — see `DECISIONS.md` D-04. Three containers costs about
 70 MB more than one container holding three databases, on a stack that runs roughly 1 GB either way,
-so the resource argument does not decide it. What decides it is evidence: a marker reading
+so the resource argument does not decide it. What decides it is evidence: anyone reading
 `docker compose ps` sees the separation without being asked to take it on faith, and stopping
-`asset-db` on camera while the other two services keep serving is positive proof of the independent
+`asset-db` while the other two services keep serving is positive proof of the independent
 deployment and fault isolation the non-functional requirements ask for. One shared container would
 take all three services down in that same test.
 

@@ -176,12 +176,12 @@ def test_an_alert_that_is_not_in_the_graph_is_answered_honestly(loaded_graph):
     assert "does not hold an answer" in answer.text
 
 
-def test_the_demo_picks_the_alert_the_scenario_narrates(loaded_graph):
+def test_the_demo_picks_the_alert_the_scenario_describes(loaded_graph):
     """
     Purpose: `--demo` lands on a Multiple Failed Logins alert, which is the
              story the Phase 2 demonstration scenario tells. Every alert the
              attack raises is HIGH, so without the rule preference the choice
-             falls to a content-hashed id and the demo narrates whichever alert
+             falls to a content-hashed id and the demo explains whichever alert
              happens to sort first.
     Inputs:  the loaded graph.
     Output:  assertions.

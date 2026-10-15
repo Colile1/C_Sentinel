@@ -1,7 +1,7 @@
 """
 test_gateway_enforcement.py - the gateway blocks before a service is reached.
 
-Two things the mark schedule asks be proven at the gateway, not in a service:
+Two things that must be enforced at the gateway, not in a service:
 a request with no token to a protected route is refused by Kong (401), and
 exceeding the rate limit returns 429. Both responses still carry a correlation
 id, so a rejected request stays traceable.

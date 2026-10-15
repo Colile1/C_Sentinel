@@ -6,8 +6,8 @@ printing the response time of every call and writing the security events to
 stdout. The point is the timings: the calls before the breaker opens are slow
 because they retry, and the calls after it opens return in roughly zero
 milliseconds because no network is touched. That contrast is the observable
-signature of an open breaker, and it is what `docs/patterns.md` asks be said
-out loud on camera.
+signature of an open breaker, and it is what `docs/patterns.md` says to watch
+for.
 
 This is the offline twin of `break_asset_service.py`, which does the same
 against the real stack once step 9 has containers to stop. This one needs no
@@ -78,8 +78,8 @@ def _install_stand_in_dependency() -> None:
 def _build_client() -> ResilientClient:
     """
     Purpose: a client with demo-paced thresholds - it opens after three failed
-             requests and re-tests after a second, so the whole run fits on
-             camera.
+             requests and re-tests after a second, so the whole run takes
+             seconds.
     Inputs:  none.
     Output:  the `ResilientClient` under demonstration.
     """

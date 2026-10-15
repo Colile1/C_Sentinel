@@ -146,7 +146,7 @@ def test_service_extraction_matches_whole_names(text, expected):
 def test_classification_is_deterministic():
     """
     Purpose: the same question always classifies the same way - the property
-             that lets the demo be rehearsed.
+             that makes answers reproducible.
     Inputs:  none.
     Output:  assertions.
     """

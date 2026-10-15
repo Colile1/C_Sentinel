@@ -1,5 +1,5 @@
 # observability/grafana/datasource.yml - provisions Prometheus as Grafana's
-# default datasource, so no one clicks through a setup wizard on camera.
+# default datasource, so no one has to click through a setup wizard.
 #
 # Loaded from /etc/grafana/provisioning/datasources by the mount in
 # docker-compose.yml. The address is the Compose service name.

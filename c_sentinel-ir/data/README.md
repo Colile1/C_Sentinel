@@ -20,8 +20,8 @@ minimum that makes the demo tell a story:
 - Six assets across types and criticalities, including at least one CRITICAL asset — reading it
   emits the `ASSET_ACCESSED` event that Phase 2 treats as sensitive-asset access. `seed/assets.json`
   ships six, two of them CRITICAL.
-- No pre-loaded incidents. Incidents are created live on camera, because a workflow the marker
-  watches happen is worth more than a table that was already populated.
+- No pre-loaded incidents. Incidents are created by running the business workflow
+  (`client/demo_workflow.py`), so each run shows the whole path rather than pre-populated rows.
 
 Seed data is loaded through the public API, not by SQL insert. If seeding needs a direct database
 write, an endpoint is missing. The single exception is the bootstrap admin above, which auth-service

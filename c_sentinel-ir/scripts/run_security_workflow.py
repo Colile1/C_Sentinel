@@ -1,12 +1,12 @@
 """
-run_security_workflow.py - the Phase 2 demonstration scenario, end to end, in
-one pass.
+run_security_workflow.py - a quick end-to-end demo of the Phase 2 security
+workflow, in one pass.
 
 The Phase 2 specification section 7 asks for one complete security workflow
 demonstrated from the original event through to the RAG answer. Each stage of
 that workflow already has its own CLI; this script runs them in order, prints a
-banner before each, and stops at the first failure - so the workflow can be run
-on camera without switching between four commands and losing the thread.
+banner before each, and stops at the first failure - so the whole workflow can be
+seen and tested without switching between four commands.
 
     python scripts/run_security_workflow.py                 # all five stages
     python scripts/run_security_workflow.py --skip-capture  # keep the committed
@@ -26,8 +26,8 @@ because the specification's workflow ends at the generated answer.
 
 Stages 3 and 4 need a reachable Neo4j (`NEO4J_*`); stages 1 and 2 do not.
 Like every other script here this one is an outside caller: it imports no
-service package, it shells out to the module CLIs exactly as the demo script
-tells the presenter to.
+service package, it shells out to the module CLIs exactly as a user would run
+them by hand.
 
 Author: Colile
 """

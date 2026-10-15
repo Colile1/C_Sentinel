@@ -79,8 +79,8 @@ class Settings(BaseSettings):
 
     # Resilience — retry and circuit breaker, read by libs/common/http_client.py.
     # Defaults are the demo-friendly values: the breaker opens after three failed
-    # requests and re-tests after fifteen seconds, both short enough to show on
-    # camera inside the ninety seconds docs/patterns.md budgets for the proof.
+    # requests and re-tests after fifteen seconds, both short enough to watch
+    # happen inside the ninety seconds docs/patterns.md budgets for a test.
     dependency_timeout_seconds: float = Field(default=3.0, gt=0)
     retry_max_attempts: int = Field(default=3, ge=1)
     retry_backoff_seconds: float = Field(default=0.2, gt=0)

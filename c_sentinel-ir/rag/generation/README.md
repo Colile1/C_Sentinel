@@ -7,7 +7,7 @@ generation strategy can change without touching the part that has to be explaine
 
 | File | Responsibility |
 |------|----------------|
-| `templates.py` | One answer template per intent, filled from the evidence. Template-based generation is explicitly acceptable and fully marked, and it cannot hallucinate — every slot comes from a retrieved node. `generate(evidence) -> Answer` |
+| `templates.py` | One answer template per intent, filled from the evidence. Template-based generation cannot hallucinate — every slot comes from a retrieved node. `generate(evidence) -> Answer` |
 | `answer.py` | `Answer` — the answer text, the evidence, and the generation method used. `render()` prints the answer followed by the evidence block |
 | `main.py` | `answer_question(question) -> Answer`, and the demo CLI |
 
@@ -16,7 +16,7 @@ generation strategy can change without touching the part that has to be explaine
 ## The rule
 
 An answer may contain no claim that is not present in the evidence, and the evidence block is
-printed alongside it — so a marker can check every sentence against the graph.
+printed alongside it — so a reader can check every sentence against the graph.
 
 `rag/tests/test_grounding.py` enforces this mechanically rather than by reading: it extracts every
 alert id, event id, technique id and service name from the answer text and asserts each appears in

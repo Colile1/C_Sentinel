@@ -24,6 +24,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "client"))
 
 from api_client import ApiClient  # noqa: E402
+from common.deploy_env import load_deploy_env  # noqa: E402
+
+load_deploy_env()
 
 SEED_DIR = Path(__file__).resolve().parents[1] / "data" / "seed"
 # Matches BOOTSTRAP_ADMIN_* in deploy/.env; read from the environment so the

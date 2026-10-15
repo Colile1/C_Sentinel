@@ -7,7 +7,7 @@ writes `docs/evidence/step15-attack-events.jsonl`, which is the input to
 
     python -m soc.rules.main --file docs/evidence/step15-attack-events.jsonl
 
-so the rules can be demonstrated on camera without first staging a live attack
+so the rules can be tried out without first staging a live attack
 against the stack. The live equivalent is `client/failed_login_demo.py` plus the
 gateway burst in `tests/integration`; this file is the reproducible twin.
 
@@ -156,7 +156,7 @@ def _dependency_collapse() -> list[SecurityEvent]:
     """
     Purpose: phase four - asset-service buckles under the load, incident-service
              exhausts its retries and the breaker opens. Rule 4's input, and the
-             point where Phase 1's marked circuit-breaker pattern feeds the SOC
+             point where Phase 1's circuit-breaker pattern feeds the SOC
              layer directly.
     Inputs:  none.
     Output:  a list of `SecurityEvent`.

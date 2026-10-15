@@ -38,7 +38,7 @@ than shipping one monolith.
 
 - **auth-service** — the identity boundary. Holds the user table, hashes passwords, issues and
   verifies HS256 JWTs. It is the only service that ever sees a plaintext password, and the only one
-  whose failures the mark schedule asks to be observable as security events (`AUTH_FAILED`).
+  whose failures must be observable as security events (`AUTH_FAILED`).
 - **incident-service** — the domain's core workflow. Owns the incident lifecycle (`OPEN` ->
   `TRIAGED` -> `RESOLVED`) and severity (`LOW`..`CRITICAL`), and is the one service that calls
   another service in the running system — asset-service, to snapshot the asset a new incident names.
@@ -70,9 +70,9 @@ never reaches a service process), enforces a 60 requests/minute rate limit, and 
 request and response with `X-Correlation-ID` via the correlation plugin. A single entry point
 matters more as services multiply because it is the one place authentication, rate limiting and
 request tracing can be enforced consistently — without it, each of the three services would need to
-reimplement all three, and a missed one becomes a silent hole. (The gateway is not claimed as one of
-the two marked patterns — the mark schedule excludes it explicitly — but it is the mechanism that
-makes both claimed patterns and the correlation invariant demonstrable from outside the system.)
+reimplement all three, and a missed one becomes a silent hole. (The gateway is not counted as one of
+the two architectural patterns, but it is the mechanism that
+makes both patterns and the correlation invariant demonstrable from outside the system.)
 
 ## 5. Service registry and discovery
 
@@ -84,8 +84,8 @@ is restated here because the demo needs it stated plainly:
    pointing at its own `/health`.
 2. Consul polls that `/health` endpoint on an interval; an instance that stops answering is marked
    critical and, after a deregistration timeout, removed from the list.
-3. `localhost:8500`'s UI lists every registered instance with its real address and port — this is
-   the screen the demo shows for criterion 4.
+3. `localhost:8500`'s UI lists every registered instance with its real address and port — the
+   quickest way to see discovery working.
 4. In this deployment, Kong resolves the upstream hostname through Docker Compose's own DNS, not by
    querying Consul directly. Consul is the authoritative record of *which instances exist and
    whether they are healthy*, and the two are named separately here because conflating them would
@@ -97,8 +97,7 @@ is restated here because the demo needs it stated plainly:
 
 ## 6. The two patterns
 
-Summarised from `docs/patterns.md`, which is the section a marker checking criterion 6 should read
-in full:
+Summarised from `docs/patterns.md`, which explains both in full:
 
 1. **Database per Service** — three separate PostgreSQL containers, one per service, each service
    holding exactly one connection string and no visibility into the other two schemas.
@@ -111,7 +110,7 @@ in full:
    `AssetSummary(available=False)` fallback rather than hanging or raising, so an asset-service
    outage degrades incident creation instead of failing it.
 
-Both were chosen because each can be proven on camera in under ninety seconds — `docker compose stop
+Both were chosen because each can be proven in a running system in under ninety seconds — `docker compose stop
 asset-db` for the first, `scripts/break_asset_service.py` (or manually stopping `asset-service`) for
 the second — rather than argued from source alone.
 
@@ -130,10 +129,10 @@ address a client is meant to use is the gateway's `8000`.
 Structured JSON logs to stdout, collected by Docker (`libs/common/logging.py`), Prometheus metrics
 at `/metrics` on every service (`libs/common/logging.py`'s counters plus FastAPI's own),
 Grafana dashboards over that scrape (`observability/`), and the `/health` / `/health/live` split so a
-database blip cannot restart a process via the container `HEALTHCHECK`. These are built and shown
-in the demo, but the two patterns claimed for the pattern mark are the two in section 6 above — see
-`docs/patterns.md`'s closing note for why a shorter, provable claim beats a longer one the marker
-has to take on trust.
+database blip cannot restart a process via the container `HEALTHCHECK`. These are built and
+demonstrable, but the two architectural patterns are the two in section 6 above — see
+`docs/patterns.md`'s closing note for why a short, provable list beats a longer one that has to be
+taken on trust.
 
 ## 9. Preparation for the SOC and knowledge graph
 

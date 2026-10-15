@@ -26,7 +26,7 @@ Only step 3 needs a database, which is why the shapers are pure functions and th
 - **Parameters are bound.** An entity id arrives from a user's question, so interpolating it into
   the query text would put user input into Cypher. `test_the_entity_id_is_bound_never_interpolated`
   asserts the id appears in the parameter dict and never in the query text.
-- **The queries are the step-18 ones.** Nothing here writes new Cypher. The queries the marker sees
+- **The queries are the step-18 ones.** Nothing here writes new Cypher. The queries
   demonstrated at step 18 are the queries the RAG layer runs at step 19, so there is one set to
   explain and none that can drift from the verified one.
 
