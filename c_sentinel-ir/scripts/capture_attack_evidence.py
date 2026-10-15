@@ -13,8 +13,13 @@ gateway burst in `tests/integration`; this file is the reproducible twin.
 
 The attack is one story told in order: an attacker brute-forces an analyst
 account, gets in, probes endpoints its role does not cover including the admin
-route, then floods the gateway until the rate limiter refuses it and
-asset-service falls over behind the breaker.
+route, reads a critical asset, then floods the gateway until the rate limiter
+refuses it and asset-service falls over behind the breaker. The responder then
+raises an incident against the asset and escalates it to CRITICAL.
+
+Every event lands at or before the breaker opening (228 s), because the rules
+are evaluated at the latest event and Rule 3's one-minute window must still
+cover the flood.
 
 Author: Colile
 """
@@ -126,6 +131,68 @@ def _endpoint_probing() -> list[SecurityEvent]:
     ]
 
 
+def _critical_asset_read() -> list[SecurityEvent]:
+    """
+    Purpose: the compromised account reads the most sensitive asset - an
+             `ASSET_ACCESSED` event, which links the attack to an asset.
+    Inputs:  none.
+    Output:  a list of `SecurityEvent`.
+    """
+    return [
+        _at(
+            130,
+            service_name="asset-service",
+            event_type=EventType.ASSET_ACCESSED,
+            severity=Severity.MEDIUM,
+            endpoint="/api/v1/assets/1",
+            http_method="GET",
+            status_code=200,
+            user_id=VICTIM_USER,
+            source_ip=ATTACKER_IP,
+            correlation_id="corr-asset-read",
+            message="Critical asset 'core-auth-db' was read.",
+            affected_entity="asset-1",
+        )
+    ]
+
+
+def _incident_response() -> list[SecurityEvent]:
+    """
+    Purpose: phase five - the responder raises an incident against the asset
+             the attacker reached, then escalates it to CRITICAL.
+    Inputs:  none.
+    Output:  a list of `SecurityEvent`.
+    """
+    return [
+        _at(
+            222,
+            service_name="incident-service",
+            event_type=EventType.INCIDENT_CREATED,
+            severity=Severity.HIGH,
+            endpoint="/api/v1/incidents",
+            http_method="POST",
+            status_code=201,
+            user_id="admin",
+            correlation_id="corr-incident-raise",
+            message="Incident 1 created with severity HIGH for asset 'core-auth-db'.",
+            affected_entity="incident-1",
+        ),
+        _at(
+            226,
+            service_name="incident-service",
+            event_type=EventType.INCIDENT_ESCALATED,
+            severity=Severity.CRITICAL,
+            endpoint="/api/v1/incidents/1/severity",
+            http_method="PATCH",
+            status_code=200,
+            user_id="admin",
+            correlation_id="corr-incident-escalate",
+            message="Incident 1 escalated from HIGH to CRITICAL.",
+            affected_entity="incident-1",
+        ),
+    ]
+
+
 def _request_flood() -> list[SecurityEvent]:
     """
     Purpose: phase three - a burst that the gateway's rate limiter refuses, which
@@ -202,8 +269,10 @@ def build_attack() -> list[SecurityEvent]:
     return (
         _brute_force()
         + _endpoint_probing()
+        + _critical_asset_read()
         + _request_flood()
         + _dependency_collapse()
+        + _incident_response()
     )
 
 

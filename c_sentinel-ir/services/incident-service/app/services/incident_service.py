@@ -180,7 +180,10 @@ class IncidentService:
                 endpoint=INCIDENTS_ENDPOINT,
                 http_method="POST",
                 status_code=201,
-                message=f"Incident {incident.id} created with severity {incident.severity}.",
+                message=(
+                    f"Incident {incident.id} created with severity {incident.severity} "
+                    f"for asset {incident.asset_name_snapshot!r}."
+                ),
                 correlation_id=correlation_id,
                 affected_entity=f"incident-{incident.id}",
             )
