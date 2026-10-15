@@ -71,14 +71,13 @@ to demonstrate: `setup.bat` rebuilds a broken `.venv`, installs `requirements.lo
 `libs/common`, and generates `deploy/.env`; `start.bat` starts the stack, waits until every check in
 `verify_stack.py` passes, seeds the demo data, and reloads the Neo4j graph from the committed attack
 capture. `start.bat --workflow` also runs the business workflow once; `stop.bat` stops the stack.
-Both print the generated admin, Grafana and Neo4j logins at the end.
+Both print the generated admin, Grafana and Neo4j logins at the end. `console.bat` then opens the
+operator console on http://127.0.0.1:8010, from which every feature can be driven and inspected
+(see `docs/console.md`).
 
 The host-side scripts (seed, clients, integration tests, graph loader, RAG) read `deploy/.env`
 themselves through `libs/common/deploy_env.py`; a variable already exported in the shell still
 wins.
-
-`console.bat` (in `c_sentinel-ir/`) then opens the operator console on http://127.0.0.1:8010, from
-which every feature can be driven and inspected (see `docs/console.md`).
 
 Run the tests:
 
