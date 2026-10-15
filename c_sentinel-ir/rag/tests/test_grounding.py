@@ -73,6 +73,7 @@ def _claims(text: str) -> set[str]:
         ("What is auth-service exposed to?", "q3_rows"),
         ("Which users are linked to repeated failed logins?", "q2_rows"),
         ("What is the likely impact if asset-service fails?", "q5_rows"),
+        ("Which incidents are linked to repeated failed logins?", "q6_rows"),
     ],
 )
 def test_every_claim_in_an_answer_appears_in_its_evidence(

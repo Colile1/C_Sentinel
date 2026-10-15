@@ -215,3 +215,18 @@ def test_retrieve_returns_empty_evidence_when_the_graph_knows_nothing(runner_for
 
     assert evidence.is_empty
     assert "controls_for_alert" in evidence.reason
+
+
+def test_incident_alerts_keep_their_own_rule_names(q6_rows):
+    """Two alerts from the same rule each keep that rule, and the null map an
+    alert-less OPTIONAL MATCH produces is skipped rather than shown."""
+    from rag.retrieval.retriever import shape_rows
+
+    nodes, relationships = shape_rows("incidents_and_alerts", q6_rows)
+    alerts = {node.key: node.properties["ruleName"] for node in nodes if node.label == "Alert"}
+    assert alerts == {
+        "alt-0123456789ab": "Multiple Failed Logins",
+        "alt-abcdef012345": "Multiple Failed Logins",
+    }
+    contains = [edge for edge in relationships if edge.type == "CONTAINS"]
+    assert len(contains) == 2

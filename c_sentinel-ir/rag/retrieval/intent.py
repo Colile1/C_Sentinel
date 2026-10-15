@@ -1,7 +1,7 @@
 """
 intent.py - which question is this, and what is it about?
 
-`classify(question)` maps a plain-English question onto one of six intents and
+`classify(question)` maps a plain-English question onto one of seven intents and
 extracts the entity the question names. It is deliberately rule- and
 keyword-based rather than model-based: the specification asks the student to
 explain the retrieval process, and a scoring table that can be read out loud in
@@ -35,7 +35,7 @@ _SERVICE_NAME = re.compile(
 
 
 class IntentName(str, Enum):
-    """The six question types the retrieval layer supports, plus the refusal."""
+    """The seven question types the retrieval layer supports, plus the refusal."""
 
     ALERT_EXPLANATION = "ALERT_EXPLANATION"
     RESPONSE_PROCEDURE = "RESPONSE_PROCEDURE"
@@ -43,6 +43,7 @@ class IntentName(str, Enum):
     THREAT_MITIGATION = "THREAT_MITIGATION"
     USER_LINKAGE = "USER_LINKAGE"
     DEPENDENCY_IMPACT = "DEPENDENCY_IMPACT"
+    INCIDENT_LINKAGE = "INCIDENT_LINKAGE"
     UNSUPPORTED = "UNSUPPORTED"
 
 
@@ -133,6 +134,23 @@ INTENTS: tuple[IntentRule, ...] = (
             "fails",
         ),
         entity_kind="service",
+    ),
+    # Any question about incidents matches at least two of these, so "which
+    # incidents are linked to repeated failed logins?" outscores USER_LINKAGE's
+    # "failed logins", and "which alerts may indicate a wider security
+    # incident?" outscores SERVICE_ALERTS' "which alerts".
+    IntentRule(
+        IntentName.INCIDENT_LINKAGE,
+        (
+            "incidents",
+            "which incidents",
+            "what incidents",
+            "incidents linked",
+            "incident contain",
+            "security incident",
+            "wider security incident",
+            "wider incident",
+        ),
     ),
 )
 

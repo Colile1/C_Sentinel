@@ -21,7 +21,7 @@ node, so an answer is structurally incapable of stating something the graph does
 
 ## The questions it answers
 
-Each maps to one of the five queries demonstrated at step 18 — no new Cypher is written here.
+Each maps to one of the six demonstrated queries in `kg/cypher` — no new Cypher is written here.
 
 | Question | Intent | Query |
 |----------|--------|-------|
@@ -41,7 +41,7 @@ reason — never a guess.
 python -m rag.generation.main --demo
 ```
 
-Worked answers for all six question types, plus both refusal cases, are captured at
+Worked answers for all seven question types, plus both refusal cases, are captured at
 `docs/evidence/step19-rag-answers.txt`.
 
 ## Integration

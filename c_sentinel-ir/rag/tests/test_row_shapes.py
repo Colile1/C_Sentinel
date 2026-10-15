@@ -45,6 +45,7 @@ def _returned_columns(query_key: str) -> set[str]:
         ("threats_for_service", "q3_rows"),
         ("users_high_severity", "q2_rows"),
         ("dependency_impact", "q5_rows"),
+        ("incidents_and_alerts", "q6_rows"),
     ],
 )
 def test_each_fixture_matches_its_querys_returned_columns(

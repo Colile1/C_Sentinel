@@ -7,7 +7,7 @@ most about, because it is the half a student can actually explain.
 
 | File | Responsibility |
 |------|----------------|
-| `intent.py` | `classify(question) -> Intent` — maps the question to one of six intents (alert explanation, response procedure, service alerts, threat mitigation, user linkage, dependency impact) plus its extracted entity id. A keyword scoring table: each intent owns a set of phrases, a question scores one point per phrase present, highest score wins, ties break on declaration order. Deterministic and unit-testable |
+| `intent.py` | `classify(question) -> Intent` — maps the question to one of seven intents (alert explanation, response procedure, service alerts, threat mitigation, user linkage, dependency impact) plus its extracted entity id. A keyword scoring table: each intent owns a set of phrases, a question scores one point per phrase present, highest score wins, ties break on declaration order. Deterministic and unit-testable |
 | `cypher_builder.py` | `build_query(intent) -> tuple[str, dict]` — the intent's parameterised Cypher, taken from the `kg/cypher` catalogue. Parameters are bound, never interpolated |
 | `retriever.py` | `retrieve(question, runner) -> Evidence` — classify, build, run, shape. One pure `_shape_*` function per query turns its rows into nodes and relationships; `runner` is injectable so everything but the live tests runs with no Neo4j |
 | `evidence.py` | `Evidence`, `EvidenceNode`, `EvidenceRelationship` — the structured retrieval result, and `render()`, which prints the four things the specification requires shown: retrieved nodes, retrieved relationships, source documents, and the retrieval method |
@@ -15,7 +15,7 @@ most about, because it is the half a student can actually explain.
 ## The three steps, in order
 
 1. `intent.classify` — which question is this, and what is it about?
-2. `cypher_builder.build_query` — which of the five demonstrated queries answers it?
+2. `cypher_builder.build_query` — which of the six demonstrated queries answers it?
 3. `retriever.retrieve` — run it, and shape the rows into evidence.
 
 Only step 3 needs a database, which is why the shapers are pure functions and the mapping from

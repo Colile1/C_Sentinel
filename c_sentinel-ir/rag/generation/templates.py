@@ -222,6 +222,38 @@ def _dependency_impact(evidence: Evidence) -> str:
     )
 
 
+def _incident_linkage(evidence: Evidence) -> str:
+    """
+    Purpose: answer "which incidents are linked to these alerts?" from the q6
+             evidence - each incident, its asset, and the alerts it contains.
+    Inputs:  evidence - the retrieved q6 subgraph.
+    Output:  the answer text.
+    """
+    incidents = evidence.nodes_of("Incident")
+    lines = [f"{len(incidents)} incident(s) group the alerts:"]
+    for incident in incidents:
+        asset = next(
+            (edge.end for edge in evidence.relationships
+             if edge.type == "AFFECTS" and edge.start == incident.key),
+            None,
+        )
+        contained = tuple(
+            edge.end for edge in evidence.relationships
+            if edge.type == "CONTAINS" and edge.start == incident.key
+        )
+        rules = {node.key: _stated(node, "ruleName") for node in evidence.nodes_of("Alert")}
+        named = _sentence_list(
+            tuple(f"{alert_id}{_qualifier(rules.get(alert_id, ''))}" for alert_id in contained)
+        )
+        severity = _stated(incident, "severity")
+        lines.append(
+            f"  - {incident.key}{f' [{severity}]' if severity else ''}"
+            f"{f' against asset {asset}' if asset else ''}"
+            f"{f' contains {named}' if contained else ' contains no alert'}"
+        )
+    return "\n".join(lines)
+
+
 def _nothing_known(evidence: Evidence) -> str:
     """
     Purpose: the honest answer when retrieval found nothing - `rag/README.md`
@@ -242,6 +274,7 @@ TEMPLATES = {
     IntentName.THREAT_MITIGATION.value: _threat_mitigation,
     IntentName.USER_LINKAGE.value: _user_linkage,
     IntentName.DEPENDENCY_IMPACT.value: _dependency_impact,
+    IntentName.INCIDENT_LINKAGE.value: _incident_linkage,
 }
 
 

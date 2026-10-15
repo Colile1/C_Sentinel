@@ -116,6 +116,29 @@ def q5_rows() -> list[dict[str, Any]]:
 
 
 @pytest.fixture
+def q6_rows() -> list[dict[str, Any]]:
+    """
+    Purpose: an `incidents_and_alerts` result.
+    Inputs:  none.
+    Output:  one row, as q6 returns it.
+    """
+    return [
+        {
+            "incidentId": "incident-1",
+            "severity": "CRITICAL",
+            "title": "Incident 1 created with severity HIGH for asset 'core-auth-db'.",
+            "reportedBy": "admin",
+            "asset": "core-auth-db",
+            "alerts": [
+                {"alertId": ALERT_ID, "ruleName": "Multiple Failed Logins"},
+                {"alertId": "alt-abcdef012345", "ruleName": "Multiple Failed Logins"},
+                {"alertId": None, "ruleName": None},
+            ],
+        }
+    ]
+
+
+@pytest.fixture
 def runner_for():
     """
     Purpose: build a `retrieve` runner that returns fixed rows and records the

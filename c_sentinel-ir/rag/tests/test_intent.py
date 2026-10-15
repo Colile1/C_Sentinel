@@ -154,3 +154,17 @@ def test_classification_is_deterministic():
     assert {classify(question).name for _ in range(10)} == {
         IntentName.SERVICE_ALERTS
     }
+
+
+def test_incident_questions_classify_as_incident_linkage():
+    """The spec's own incident questions reach the incident query, not the
+    user-linkage or service-alert queries that share some of their words."""
+    from rag.retrieval.intent import IntentName, classify
+
+    for question in (
+        "Which incidents are linked to repeated failed logins?",
+        "Which alerts may indicate a wider security incident?",
+        "What incidents contain this alert?",
+    ):
+        assert classify(question).name is IntentName.INCIDENT_LINKAGE, question
+    assert classify("Which users are linked to repeated failed logins?").name is IntentName.USER_LINKAGE

@@ -5,7 +5,7 @@ Three steps, in order, each in its own module so each can be explained and
 tested alone:
 
   1. `intent.classify`      - which question is this, and what is it about?
-  2. `cypher_builder.build` - which of the five demonstrated queries answers it?
+  2. `cypher_builder.build` - which of the six demonstrated queries answers it?
   3. this module            - run it, and shape the rows into evidence.
 
 Step 3 is the only part that needs a database. The row-shaping functions below
@@ -172,6 +172,45 @@ def _shape_dependency_impact(
     return [node], []
 
 
+def _shape_incidents_and_alerts(
+    row: dict[str, Any],
+) -> tuple[list[EvidenceNode], list[EvidenceRelationship]]:
+    """
+    Purpose: shape one q6 row - an incident, the asset it was raised against,
+             and every alert it contains.
+    Inputs:  row - a `q6_incidents_and_alerts.cypher` row.
+    Output:  (nodes, relationships).
+    """
+    incident_id = row.get("incidentId", "")
+    nodes = [
+        EvidenceNode(
+            "Incident",
+            incident_id,
+            {
+                "severity": row.get("severity"),
+                "title": row.get("title"),
+                "reportedBy": row.get("reportedBy"),
+            },
+        )
+    ]
+    relationships: list[EvidenceRelationship] = []
+    asset = row.get("asset")
+    if asset:
+        nodes.append(EvidenceNode("Asset", asset))
+        relationships.append(EvidenceRelationship(incident_id, "AFFECTS", asset))
+    # Each alert arrives as one {alertId, ruleName} map, so an alert's rule
+    # can never be paired with another alert's id. An incident containing no
+    # alert yields one map of nulls from the OPTIONAL MATCH, which is skipped.
+    alerts = row.get("alerts")
+    for alert in alerts if isinstance(alerts, list) else []:
+        alert_id = alert.get("alertId") if isinstance(alert, dict) else None
+        if not alert_id:
+            continue
+        nodes.append(EvidenceNode("Alert", alert_id, {"ruleName": alert.get("ruleName")}))
+        relationships.append(EvidenceRelationship(incident_id, "CONTAINS", alert_id))
+    return nodes, relationships
+
+
 #: One shaper per demonstrated query, keyed by the `kg/cypher` query key.
 SHAPERS: dict[str, Shaper] = {
     "controls_for_alert": _shape_controls_for_alert,
@@ -179,6 +218,7 @@ SHAPERS: dict[str, Shaper] = {
     "threats_for_service": _shape_threats_for_service,
     "users_high_severity": _shape_users_high_severity,
     "dependency_impact": _shape_dependency_impact,
+    "incidents_and_alerts": _shape_incidents_and_alerts,
 }
 
 #: Which retrieved label counts as a source document, for the evidence block's
@@ -193,7 +233,7 @@ def shape_rows(
     Purpose: turn a query's rows into deduplicated evidence nodes and
              relationships - the pure half of retrieval, tested without a
              database.
-    Inputs:  query_key - which of the five ran; rows - its result rows.
+    Inputs:  query_key - which of the six ran; rows - its result rows.
     Output:  (nodes, relationships), each deduplicated, in retrieval order.
     Raises:  `KeyError` when no shaper is registered for the key.
     """

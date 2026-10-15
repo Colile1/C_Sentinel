@@ -1,7 +1,7 @@
 """
 cypher_builder.py - an intent becomes a parameterised query.
 
-Every intent maps onto one of the five queries already demonstrated in
+Every intent maps onto one of the six queries already demonstrated in
 `kg/cypher`. That reuse is deliberate: the queries demonstrated at step
 18 are the same queries the RAG layer runs at step 19, so there is one set of
 Cypher to explain, not two, and a query cannot drift away from the one that was
@@ -21,8 +21,9 @@ from __future__ import annotations
 from kg.cypher.queries import get_query
 from rag.retrieval.intent import Intent, IntentName
 
-#: Which of the five demonstrated queries answers each intent, and the name the
-#: intent's extracted entity binds to. `USER_LINKAGE` takes no parameter.
+#: Which of the six demonstrated queries answers each intent, and the name the
+#: intent's extracted entity binds to. `USER_LINKAGE` and `INCIDENT_LINKAGE`
+#: take no parameter.
 INTENT_QUERIES: dict[IntentName, tuple[str, str | None]] = {
     IntentName.ALERT_EXPLANATION: ("controls_for_alert", "alertId"),
     IntentName.RESPONSE_PROCEDURE: ("controls_for_alert", "alertId"),
@@ -30,6 +31,7 @@ INTENT_QUERIES: dict[IntentName, tuple[str, str | None]] = {
     IntentName.THREAT_MITIGATION: ("threats_for_service", "service"),
     IntentName.USER_LINKAGE: ("users_high_severity", None),
     IntentName.DEPENDENCY_IMPACT: ("dependency_impact", "service"),
+    IntentName.INCIDENT_LINKAGE: ("incidents_and_alerts", None),
 }
 
 

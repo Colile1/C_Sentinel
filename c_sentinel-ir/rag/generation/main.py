@@ -7,7 +7,7 @@ Thin, like every other entry point in this project: it parses arguments, calls
 
     python -m rag.generation.main "Why was alert alt-abc123456789 created and
                                    what should be done?"
-    python -m rag.generation.main --questions       # the six supported shapes
+    python -m rag.generation.main --questions       # the seven supported shapes
     python -m rag.generation.main --demo            # the step-19 question, run
                                                     # against the live graph
     python -m rag.generation.main --demo --llm      # same, phrased by the LLM
