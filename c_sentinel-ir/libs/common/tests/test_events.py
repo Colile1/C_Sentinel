@@ -269,6 +269,7 @@ class TestEventTypeCoverage:
             "CIRCUIT_OPENED",
             "CIRCUIT_CLOSED",
             "SERVICE_ERROR",
+            "HEALTH_CHECK_FAILED",
         ],
     )
     def test_documented_event_type_exists(self, event_type: str) -> None:
@@ -282,7 +283,7 @@ class TestEventTypeCoverage:
             "RATE_LIMIT_EXCEEDED", "REQUEST_RECEIVED", "REQUEST_COMPLETED",
             "INCIDENT_CREATED", "INCIDENT_ESCALATED", "ASSET_ACCESSED",
             "DEPENDENCY_FAILURE", "CIRCUIT_OPENED", "CIRCUIT_CLOSED",
-            "SERVICE_ERROR",
+            "SERVICE_ERROR", "HEALTH_CHECK_FAILED",
         }
         assert {member.value for member in EventType} == documented
 

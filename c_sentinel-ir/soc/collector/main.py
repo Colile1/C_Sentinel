@@ -12,6 +12,10 @@ Sources, in order of precedence:
   --stdin            read `sys.stdin` (for `... logs -f | python -m
                      soc.collector.main --stdin`)
 
+The live (docker) source also asks Consul which health checks are critical
+(`soc/collector/health.py`) and adds a `HEALTH_CHECK_FAILED` event for each, so
+a service too broken to log anything is still seen. `--no-health` skips that.
+
 Author: Colile
 """
 
@@ -23,6 +27,7 @@ import sys
 from pathlib import Path
 from typing import Iterator
 
+from soc.collector.health import health_events
 from soc.collector.reader import stream_events
 from soc.collector.store import EventStore
 
@@ -119,6 +124,26 @@ def build_store(lines: Iterator[str]) -> EventStore:
     return store
 
 
+def collect(args: argparse.Namespace) -> EventStore:
+    """
+    Purpose: build the store from the chosen source and, for the live source,
+             add the current health-check failures. Shared by the collector,
+             the rule runner and the graph loader so all three see the same
+             events.
+    Inputs:  args - parsed arguments carrying `file`, `stdin` and, optionally,
+             `no_health`.
+    Output:  a populated `EventStore`.
+    """
+    store = build_store(select_source(args))
+    live = args.file is None and not args.stdin
+    if live and not getattr(args, "no_health", False):
+        try:
+            store.extend(health_events())
+        except Exception as exc:  # noqa: BLE001 - health is additive, never fatal
+            print(f"Health source skipped: {exc}", file=sys.stderr)
+    return store
+
+
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     """
     Purpose: define and parse the command line.
@@ -140,6 +165,11 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         action="store_true",
         help="read events from standard input instead of docker",
     )
+    parser.add_argument(
+        "--no-health",
+        action="store_true",
+        help="do not add Consul health-check failures to the live source",
+    )
     return parser.parse_args(argv)
 
 
@@ -151,7 +181,7 @@ def main(argv: list[str] | None = None) -> int:
     """
     args = _parse_args(argv)
     try:
-        store = build_store(select_source(args))
+        store = collect(args)
     except (RuntimeError, OSError) as exc:
         print(f"Collection failed: {exc}", file=sys.stderr)
         return 1

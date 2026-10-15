@@ -2,8 +2,13 @@
 rule_service_failure.py - Rule 4, Service Failure.
 
 Detects a service degrading: repeated `DEPENDENCY_FAILURE` or `SERVICE_ERROR`
-events from one service inside five minutes, or a `CIRCUIT_OPENED` event, which
-needs no threshold at all.
+events from one service inside five minutes, or a `CIRCUIT_OPENED` or
+`HEALTH_CHECK_FAILED` event, which need no threshold at all.
+
+A failing health check is the same kind of signal as an opened breaker: Consul
+has already watched the check fail before marking it critical, so one is enough.
+It is also the only signal from a service that has stopped answering
+altogether, because such a service emits nothing of its own.
 
 A breaker opening is already a considered judgement. `libs/common/http_client.py`
 opens it only after the configured number of *whole* requests failed, each one
@@ -33,6 +38,12 @@ from soc.rules.base import DetectionRule, window_start
 FAILURE_THRESHOLD = 3
 DETECTION_WINDOW = timedelta(minutes=5)
 
+# Signals that fire the rule on their own, with no threshold.
+_IMMEDIATE_EVENT_TYPES = (
+    EventType.CIRCUIT_OPENED,
+    EventType.HEALTH_CHECK_FAILED,
+)
+
 # Failures that are counted towards the threshold.
 _FAILURE_EVENT_TYPES = (
     EventType.DEPENDENCY_FAILURE,
@@ -55,6 +66,7 @@ class ServiceFailureRule(DetectionRule):
     )
     input_event_types = (
         EventType.CIRCUIT_OPENED,
+        EventType.HEALTH_CHECK_FAILED,
         EventType.DEPENDENCY_FAILURE,
         EventType.SERVICE_ERROR,
     )
@@ -82,7 +94,7 @@ class ServiceFailureRule(DetectionRule):
 
         grouped: dict[str, list[SecurityEvent]] = {}
         for event in windowed:
-            if event.event_type is EventType.CIRCUIT_OPENED or (
+            if event.event_type in _IMMEDIATE_EVENT_TYPES or (
                 event.event_type in _FAILURE_EVENT_TYPES
             ):
                 grouped.setdefault(event.service_name, []).append(event)
@@ -98,18 +110,22 @@ class ServiceFailureRule(DetectionRule):
             breaker_opened = any(
                 event.event_type is EventType.CIRCUIT_OPENED for event in events
             )
+            health_failed = any(
+                event.event_type is EventType.HEALTH_CHECK_FAILED for event in events
+            )
             failures = [
                 event
                 for event in events
                 if event.event_type in _FAILURE_EVENT_TYPES
             ]
-            if not breaker_opened and len(failures) < FAILURE_THRESHOLD:
+            if not (breaker_opened or health_failed) and len(failures) < FAILURE_THRESHOLD:
                 continue
             alerts.append(
                 self._alert_for(
                     service=service,
                     events=events,
                     breaker_opened=breaker_opened,
+                    health_failed=health_failed,
                     failure_count=len(failures),
                     recovered=service in recovered,
                     now=now,
@@ -123,6 +139,7 @@ class ServiceFailureRule(DetectionRule):
         service: str,
         events: list[SecurityEvent],
         breaker_opened: bool,
+        health_failed: bool = False,
         failure_count: int,
         recovered: bool,
         now: datetime,
@@ -138,6 +155,8 @@ class ServiceFailureRule(DetectionRule):
         reasons = []
         if breaker_opened:
             reasons.append("its circuit breaker opened")
+        if health_failed:
+            reasons.append("its health check is failing")
         if failure_count:
             reasons.append(
                 f"{failure_count} dependency or server "

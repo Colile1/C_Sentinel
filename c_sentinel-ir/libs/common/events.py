@@ -72,6 +72,10 @@ class EventType(str, Enum):
     # Faults - all services
     SERVICE_ERROR = "SERVICE_ERROR"
 
+    # Health - read from Consul by the SOC collector, named for the failing
+    # service. A failing check is the one fault a service cannot report itself.
+    HEALTH_CHECK_FAILED = "HEALTH_CHECK_FAILED"
+
 
 class ServiceName(str, Enum):
     """The four emitters named in the schema. Nothing else may emit."""

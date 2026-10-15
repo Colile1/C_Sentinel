@@ -88,7 +88,7 @@ def test_the_committed_attack_raises_every_rule(capsys):
     """
     assert main(["--file", str(_ATTACK_STREAM)]) == 0
     out = capsys.readouterr().out
-    assert "Events evaluated: 22" in out
+    assert "Events evaluated: 25" in out
     assert "every related event resolves" in out
     for rule_name in (
         "Multiple Failed Logins",

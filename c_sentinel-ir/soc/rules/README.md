@@ -15,7 +15,7 @@ code rather than from a document that can drift away from it.
 | `rule_failed_logins.py` | **Multiple Failed Logins.** Five `AUTH_FAILED` events for the same user *or* the same source IP within five minutes. HIGH. Action: temporarily block the source IP and verify whether the account is compromised |
 | `rule_unauthorised_access.py` | **Unauthorised Endpoint Access.** Three refusals (401/403) from one subject within ten minutes. MEDIUM, rising to HIGH on the privileged `/api/v1/auth/users` route. Action: review the role assignment and audit the endpoint |
 | `rule_abnormal_rate.py` | **Abnormal Request Rate.** One source exceeding 30 requests in a minute, *or* three `RATE_LIMIT_EXCEEDED` events from the gateway. HIGH. Action: rate-limit the source and check upstream capacity |
-| `rule_service_failure.py` | **Service Failure.** Any `CIRCUIT_OPENED`, or three `DEPENDENCY_FAILURE` / `SERVICE_ERROR` events from one service in five minutes. HIGH. Action: check the dependency and the breaker state |
+| `rule_service_failure.py` | **Service Failure.** Any `CIRCUIT_OPENED` or `HEALTH_CHECK_FAILED`, or three `DEPENDENCY_FAILURE` / `SERVICE_ERROR` events from one service in five minutes. HIGH. Action: check the dependency and the breaker state |
 | `catalogue.py` | `all_rules()` — the registry every consumer iterates; `evaluate_all(store, now)` — run the whole catalogue in one pass |
 | `main.py` | `python -m soc.rules.main [--file PATH \| --stdin] [--now TS] [--catalogue]` — collect, evaluate, report. Reuses the collector's source selection |
 | `tests/` | Each rule tested in both directions: it fires on the scripted attack, and it stays silent on a normal `demo_workflow` run. A rule that never sleeps is as useless as one that never fires |

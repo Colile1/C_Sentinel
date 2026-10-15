@@ -24,7 +24,7 @@ from pathlib import Path
 
 from soc.alert_service.dependencies import get_alert_store
 from soc.alert_service.models import Alert
-from soc.collector.main import build_store, select_source
+from soc.collector.main import collect
 from soc.collector.store import EventStore, parse_timestamp
 from soc.rules.catalogue import all_rules, evaluate_all
 
@@ -159,7 +159,7 @@ def main(argv: list[str] | None = None) -> int:
         _print_catalogue()
         return 0
     try:
-        store = build_store(select_source(args))
+        store = collect(args)
         now = _resolve_now(args, store)
     except (RuntimeError, OSError, ValueError) as exc:
         print(f"Detection failed: {exc}", file=sys.stderr)

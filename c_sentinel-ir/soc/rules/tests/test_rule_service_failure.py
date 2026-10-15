@@ -155,3 +155,29 @@ def test_silent_on_the_normal_workflow(normal_workflow_store, now):
     Output:  assertions.
     """
     assert ServiceFailureRule().evaluate(normal_workflow_store, now) == []
+
+
+def test_a_failing_health_check_fires_on_its_own(now):
+    """
+    Purpose: `HEALTH_CHECK_FAILED` needs no threshold either - Consul has
+             already watched the check fail before marking it critical, and a
+             service too broken to answer emits nothing else to count.
+    Inputs:  the fixed evaluation moment.
+    Output:  assertions.
+    """
+    store = store_of([
+        _failure(
+            30,
+            EventType.HEALTH_CHECK_FAILED,
+            service_name="asset-service",
+            endpoint="/health",
+            http_method="GET",
+            affected_entity="asset-service",
+            message="Consul health check is critical for asset-service.",
+        )
+    ])
+    alerts = ServiceFailureRule().evaluate(store, now)
+
+    assert len(alerts) == 1
+    assert alerts[0].affected_service == "asset-service"
+    assert "health check is failing" in alerts[0].description
