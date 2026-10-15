@@ -7,6 +7,14 @@ wired into the graph:
   (:User)-[:TRIGGERED]->(:Event)-[:GENERATED_BY]->(:Service)
   (:Event)-[:TARGETED]->(:Endpoint)
   (:Event)-[:CREATED_ALERT]->(:Alert)
+  (:Event)-[:ACCESSED]->(:Asset)            a CRITICAL asset was read
+  (:Event)-[:CONCERNS]->(:Incident)         an incident was raised or escalated
+  (:Incident)-[:AFFECTS]->(:Asset)          the asset the incident was raised against
+  (:Incident)-[:CONTAINS]->(:Alert)         the alerts the incident groups
+
+An incident CONTAINS every HIGH or CRITICAL alert with evidence in the
+`INCIDENT_WINDOW` before the incident was raised - the time-window grouping a
+SOC uses when a responder opens an incident in reaction to what is firing.
 
 `CREATED_ALERT` is built from each alert's `relatedEvents`. That list is
 guaranteed non-empty by the alert schema, so every stored alert joins back to
@@ -22,13 +30,36 @@ Author: Colile
 from __future__ import annotations
 
 import hashlib
+import re
+from datetime import timedelta
 
 from soc.alert_service.models import Alert
 from soc.alert_service.store import AlertStore
-from soc.collector.store import EventStore
+from soc.collector.store import EventStore, parse_timestamp
 from kg.loader.writes import Write
 
 _LOADER = "events"
+
+#: How far back from an incident's creation an alert's evidence may lie for the
+#: incident to contain it.
+INCIDENT_WINDOW = timedelta(minutes=30)
+_GROUPED_SEVERITIES = {"HIGH", "CRITICAL"}
+_INCIDENT_EVENT_TYPES = {"INCIDENT_CREATED", "INCIDENT_ESCALATED"}
+
+# incident-service and asset-service name the asset in the event message, the
+# only free-text field: "... for asset 'core-auth-db'." / "Critical asset
+# 'core-auth-db' was read." Both messages are written by this codebase.
+_ASSET_IN_MESSAGE = re.compile(r"asset '([^']+)'")
+
+
+def asset_named_in(message: str) -> str | None:
+    """
+    Purpose: the asset an incident or asset event names in its message.
+    Inputs:  message - the event's `message`.
+    Output:  the asset name, or None when the message names none.
+    """
+    match = _ASSET_IN_MESSAGE.search(message or "")
+    return match.group(1) if match else None
 
 
 def stable_alert_id(alert: Alert) -> str:
@@ -139,6 +170,17 @@ def _merge_event(event) -> list[Write]:
             _LOADER,
         ),
     ]
+    asset = asset_named_in(row["message"]) if row["eventType"] == "ASSET_ACCESSED" else None
+    if asset:
+        writes.append(
+            Write(
+                "MERGE (a:Asset {name: $asset}) "
+                "WITH a MATCH (e:Event {eventId: $eventId}) "
+                "MERGE (e)-[:ACCESSED]->(a)",
+                {"asset": asset, "eventId": row["eventId"]},
+                _LOADER,
+            )
+        )
     if row["userId"]:
         writes.append(
             Write(
@@ -196,6 +238,89 @@ def _merge_alert(alert) -> list[Write]:
     return writes
 
 
+def _incident_writes(incident_id: str, raised: list, alerts: list[Alert], event_times: dict) -> list[Write]:
+    """
+    Purpose: one Incident node, built from its own events, with its edges.
+    Inputs:  incident_id - e.g. "incident-1"; raised - its INCIDENT_* events,
+             in time order; alerts - every alert raised; event_times - event id
+             to timestamp, for the containment window.
+    Output:  a list of `Write`.
+    """
+    created = next((e for e in raised if e.event_type.value == "INCIDENT_CREATED"), raised[0])
+    latest = raised[-1]
+    created_at = parse_timestamp(created.timestamp)
+    writes = [
+        Write(
+            "MERGE (i:Incident {incidentId: $incidentId}) SET "
+            "i.title = $title, i.severity = $severity, i.createdAt = $createdAt, "
+            "i.reportedBy = $reportedBy",
+            {
+                "incidentId": incident_id,
+                "title": created.message,
+                "severity": latest.severity.value,
+                "createdAt": created.timestamp,
+                "reportedBy": created.user_id,
+            },
+            _LOADER,
+        )
+    ]
+    for event in raised:
+        writes.append(
+            Write(
+                "MATCH (e:Event {eventId: $eventId}) "
+                "MATCH (i:Incident {incidentId: $incidentId}) "
+                "MERGE (e)-[:CONCERNS]->(i)",
+                {"eventId": event.event_id, "incidentId": incident_id},
+                _LOADER,
+            )
+        )
+    asset = asset_named_in(created.message)
+    if asset:
+        writes.append(
+            Write(
+                "MERGE (a:Asset {name: $asset}) "
+                "WITH a MATCH (i:Incident {incidentId: $incidentId}) "
+                "MERGE (i)-[:AFFECTS]->(a)",
+                {"asset": asset, "incidentId": incident_id},
+                _LOADER,
+            )
+        )
+    for alert in alerts:
+        if alert.severity.value not in _GROUPED_SEVERITIES:
+            continue
+        evidence_times = [event_times[e] for e in alert.related_events if e in event_times]
+        if any(created_at - INCIDENT_WINDOW <= moment <= created_at for moment in evidence_times):
+            writes.append(
+                Write(
+                    "MATCH (i:Incident {incidentId: $incidentId}) "
+                    "MATCH (a:Alert {alertId: $alertId}) "
+                    "MERGE (i)-[:CONTAINS]->(a)",
+                    {"incidentId": incident_id, "alertId": alert.alert_id},
+                    _LOADER,
+                )
+            )
+    return writes
+
+
+def incidents(store: EventStore, alert_store: AlertStore) -> list[Write]:
+    """
+    Purpose: every incident the event stream mentions, as Incident nodes linked
+             to their events, their asset and the alerts they group.
+    Inputs:  store - the collector's events; alert_store - the raised alerts.
+    Output:  a list of `Write`; empty when no incident event was collected.
+    """
+    raised: dict[str, list] = {}
+    for event in sorted(store.all_events(), key=lambda e: e.timestamp):
+        if event.event_type.value in _INCIDENT_EVENT_TYPES and event.affected_entity:
+            raised.setdefault(event.affected_entity, []).append(event)
+    event_times = {event.event_id: parse_timestamp(event.timestamp) for event in store.all_events()}
+    alerts = alert_store.list()
+    writes: list[Write] = []
+    for incident_id, its_events in sorted(raised.items()):
+        writes.extend(_incident_writes(incident_id, its_events, alerts, event_times))
+    return writes
+
+
 def events(store: EventStore, alert_store: AlertStore) -> list[Write]:
     """
     Purpose: the whole live-events-and-alerts source as idempotent writes -
@@ -203,11 +328,12 @@ def events(store: EventStore, alert_store: AlertStore) -> list[Write]:
              MATCH), then every alert with its edges back to those events.
     Inputs:  store - the collector's populated `EventStore`; alert_store - the
              `AlertStore` the rule runner filled.
-    Output:  a list of `Write`, events before alerts.
+    Output:  a list of `Write`: events, then alerts, then incidents.
     """
     writes: list[Write] = []
     for event in store.all_events():
         writes.extend(_merge_event(event))
     for alert in alert_store.list():
         writes.extend(_merge_alert(alert))
+    writes.extend(incidents(store, alert_store))
     return writes

@@ -29,7 +29,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from soc.alert_service.store import AlertStore
-from soc.collector.main import build_store, select_source
+from soc.collector.main import collect
 from soc.collector.store import EventStore, parse_timestamp
 from soc.rules.catalogue import evaluate_all
 from kg.loader.connection import close_driver, database_name, get_driver
@@ -122,7 +122,7 @@ def main(argv: list[str] | None = None) -> int:
     """
     args = _parse_args(argv)
     try:
-        store = build_store(select_source(args))
+        store = collect(args)
     except (RuntimeError, OSError, ValueError) as exc:
         print(f"Load failed: {exc}", file=sys.stderr)
         return 1

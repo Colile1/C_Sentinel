@@ -20,13 +20,14 @@ _EXPECTED_KEYS = {
     "threats_for_service",
     "controls_for_alert",
     "dependency_impact",
+    "incidents_and_alerts",
 }
 
 
-def test_exactly_the_five_demonstrated_queries_are_defined():
-    """The specification requires at least five; the catalogue holds these five."""
+def test_exactly_the_six_demonstrated_queries_are_defined():
+    """The specification requires at least five; the catalogue holds these six."""
     assert {q.key for q in QUERIES} == _EXPECTED_KEYS
-    assert len(QUERIES) == 5
+    assert len(QUERIES) == 6
     assert set(BY_KEY) == _EXPECTED_KEYS
 
 

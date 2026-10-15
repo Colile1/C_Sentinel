@@ -8,7 +8,7 @@
 //
 // One uniqueness constraint per node label's natural key - the property the
 // loaders `MERGE` on - which also creates a backing index. Extra indexes cover
-// the properties the five demonstrated queries in kg/cypher/ filter by but do
+// the properties the demonstrated queries in kg/cypher/ filter by but do
 // not match on identity.
 
 // --- Uniqueness constraints (natural keys) --------------------------------

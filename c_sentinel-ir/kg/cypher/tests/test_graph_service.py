@@ -45,8 +45,8 @@ def client() -> TestClient:
     return TestClient(app)
 
 
-def test_the_catalogue_endpoint_lists_all_five(client: TestClient) -> None:
-    """`GET /api/v1/graph/queries` returns the five keys and their parameters."""
+def test_the_catalogue_endpoint_lists_all_six(client: TestClient) -> None:
+    """`GET /api/v1/graph/queries` returns the six keys and their parameters."""
     body = client.get("/api/v1/graph/queries").json()
     assert {q["key"] for q in body} == {
         "alerts_for_service",
@@ -54,6 +54,7 @@ def test_the_catalogue_endpoint_lists_all_five(client: TestClient) -> None:
         "threats_for_service",
         "controls_for_alert",
         "dependency_impact",
+        "incidents_and_alerts",
     }
     params = {q["key"]: q["parameters"] for q in body}
     assert params["users_high_severity"] == []

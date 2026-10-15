@@ -1,5 +1,5 @@
 """
-queries.py - the five demonstrated queries, loaded from their .cypher files.
+queries.py - the six demonstrated queries, loaded from their .cypher files.
 
 Each `.cypher` file is the source of truth for its query text and opens with the
 plain-English question it answers. This module names them, records which
@@ -70,6 +70,11 @@ QUERIES: tuple[Query, ...] = (
         "q5_dependency_impact.cypher",
         ("service",),
     ),
+    Query(
+        "incidents_and_alerts",
+        "Which incidents group which alerts, and against which asset?",
+        "q6_incidents_and_alerts.cypher",
+    ),
 )
 
 BY_KEY: dict[str, Query] = {query.key: query for query in QUERIES}
@@ -80,6 +85,6 @@ def get_query(key: str) -> Query:
     Purpose: one query by its key.
     Inputs:  key - e.g. "alerts_for_service".
     Output:  the `Query`.
-    Raises:  `KeyError` when the key is not one of the five.
+    Raises:  `KeyError` when the key is not one of the six.
     """
     return BY_KEY[key]

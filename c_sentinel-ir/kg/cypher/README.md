@@ -11,6 +11,7 @@ The demonstrated queries. The specification requires at least five, implemented 
 | `q3_threats_for_service.cypher` | ATT&CK techniques targeting a given service, with the vulnerabilities they exploit and the controls that mitigate them (`$service`) | **built at step 18** |
 | `q4_controls_for_alert.cypher` | Controls and runbooks that address the threat a given alert indicates (`$alertId`) — the query the RAG layer runs for "what should be done?" | **built at step 18** |
 | `q5_dependency_impact.cypher` | Blast radius: which services depend, directly or transitively, on a failing service (`$service`) | **built at step 18** |
+| `q6_incidents_and_alerts.cypher` | Each incident, the asset it was raised against, and the alerts it contains — answers "which incidents are linked to repeated failed logins?" | **built** |
 | `queries.py` | `QUERIES` — the catalogue: each query's key, plain-English question, `.cypher` file and required parameters. One definition shared by `graph_service.py` and the tests | **built at step 18** |
 | `graph_service.py` | A thin FastAPI service: `GET /api/v1/graph/queries` lists the catalogue, and one GET endpoint per query. Reads Neo4j through `kg.loader.connection.run_query`; no database of its own, no Consul (D-30) | **built at step 18** |
 
@@ -33,7 +34,7 @@ curl 'http://localhost:8008/api/v1/graph/dependency-impact?service=asset-service
   complete, every declared parameter is referenced in its Cypher, and the API validates and
   forwards parameters correctly (`run_query` patched).
 - `tests/test_live_queries.py` is marked `neo4j` — skipped unless a server answers at `NEO4J_URI`.
-  It loads the graph from the committed step-15 attack capture and asserts all five queries return
+  It loads the graph from the committed step-15 attack capture and asserts all six queries return
   non-empty rows, q5 returns the real `incident-service` dependency, and q4 reaches a control for a
   *Multiple Failed Logins* alert. This is the step-18 verification; run it with
   `docker compose up -d neo4j` and `NEO4J_PASSWORD=... python -m pytest kg/cypher/tests/test_live_queries.py -m neo4j`.
@@ -45,5 +46,5 @@ curl 'http://localhost:8008/api/v1/graph/dependency-impact?service=asset-service
 conventions. The query is correct; it returns exactly what the graph links. A live workflow capture
 (as opposed to the scripted attack) carries the seed usernames and resolves the role.
 
-Done when: all five return non-empty results against the seeded graph, and each is reachable through
+Done when: all six return non-empty results against the seeded graph, and each is reachable through
 `graph_service.py`. Verified live at step 18.

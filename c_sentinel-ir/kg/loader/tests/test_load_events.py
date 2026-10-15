@@ -118,3 +118,78 @@ def test_stable_alert_id_differs_when_the_evidence_differs(
     alert = alert_store.list()[0]
     other = alert.model_copy(update={"related_events": ("evt-ffffffffffff",)})
     assert stable_alert_id(alert) != stable_alert_id(other)
+
+
+# --- incidents and assets -----------------------------------------------------
+# Built from the scripted attack itself (scripts/capture_attack_evidence.py), so
+# these tests exercise the same story the demonstration graph holds.
+
+from kg.loader.load_events import INCIDENT_WINDOW, asset_named_in, incidents  # noqa: E402
+
+
+def _attack_stores():
+    """Purpose: the scripted attack as an event store and its raised alerts.
+    Inputs: none. Output: (EventStore, AlertStore)."""
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+    from capture_attack_evidence import build_attack
+    from soc.collector.store import parse_timestamp
+    from soc.rules.catalogue import evaluate_all
+
+    store = EventStore()
+    store.extend(build_attack())
+    latest = max(parse_timestamp(e.timestamp) for e in store.all_events())
+    alert_store = AlertStore()
+    for alert in with_stable_ids(evaluate_all(store, latest)):
+        alert_store.add(alert)
+    return store, alert_store
+
+
+def test_asset_named_in_reads_both_message_shapes():
+    assert asset_named_in("Incident 1 created with severity HIGH for asset 'core-auth-db'.") == "core-auth-db"
+    assert asset_named_in("Critical asset 'payments-api' was read.") == "payments-api"
+    assert asset_named_in("Incident 1 escalated from HIGH to CRITICAL.") is None
+
+
+def test_the_incident_takes_its_latest_severity_and_its_asset():
+    store, alert_store = _attack_stores()
+    writes = incidents(store, alert_store)
+    node = next(w for w in writes if w.cypher.startswith("MERGE (i:Incident"))
+    assert node.parameters["incidentId"] == "incident-1"
+    assert node.parameters["severity"] == "CRITICAL"
+    affects = [w for w in writes if "AFFECTS" in w.cypher]
+    assert [w.parameters["asset"] for w in affects] == ["core-auth-db"]
+    assert len([w for w in writes if "CONCERNS" in w.cypher]) == 2
+
+
+def test_the_incident_contains_every_high_alert_with_evidence_in_the_window():
+    store, alert_store = _attack_stores()
+    contained = {
+        w.parameters["alertId"] for w in incidents(store, alert_store) if "CONTAINS" in w.cypher
+    }
+    assert contained == {a.alert_id for a in alert_store.list()}
+
+
+def test_alerts_older_than_the_window_are_not_contained():
+    store, alert_store = _attack_stores()
+    from soc.collector.store import parse_timestamp
+
+    late = EventStore()
+    for event in store.all_events():
+        if event.event_type.value.startswith("INCIDENT_"):
+            moved = parse_timestamp(event.timestamp) + INCIDENT_WINDOW * 2
+            event = event.model_copy(update={"timestamp": moved.strftime("%Y-%m-%dT%H:%M:%SZ")})
+        late.extend([event])
+    assert not [w for w in incidents(late, alert_store) if "CONTAINS" in w.cypher]
+
+
+def test_a_critical_asset_read_links_the_event_to_the_asset():
+    store, alert_store = _attack_stores()
+    accessed = [w for w in events(store, alert_store) if "ACCESSED" in w.cypher]
+    assert [w.parameters["asset"] for w in accessed] == ["core-auth-db"]
+
+
+def test_no_incident_events_means_no_incident_writes(event_store, alert_store):
+    assert incidents(event_store, alert_store) == []

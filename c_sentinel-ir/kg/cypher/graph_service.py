@@ -1,5 +1,5 @@
 """
-graph_service.py - a small HTTP service over the five demonstrated queries.
+graph_service.py - a small HTTP service over the six demonstrated queries.
 
 Thin by design: the shared JSON logging and typed-error handlers, a liveness
 `/health`, and one GET endpoint per query plus `GET /api/v1/graph/queries` that
@@ -44,7 +44,7 @@ app.include_router(build_health_router(_SERVICE_NAME))
 @app.get("/api/v1/graph/queries", summary="List the demonstrated queries")
 def list_queries() -> list[dict[str, Any]]:
     """
-    Purpose: the catalogue of the five queries - key, question and required
+    Purpose: the catalogue of the six queries - key, question and required
              parameters - so a caller knows what to ask for.
     Inputs:  none.
     Output:  200 with a JSON array.
@@ -91,6 +91,12 @@ def dependency_impact(
 ) -> list[dict[str, Any]]:
     """Purpose: q5. Inputs: service. Output: 200 with the impacted services."""
     return _run("dependency_impact", service=service)
+
+
+@app.get("/api/v1/graph/incidents", summary="Incidents, their asset and the alerts they group (q6)")
+def incidents_and_alerts() -> list[dict[str, Any]]:
+    """Purpose: q6. Inputs: none. Output: 200 with each incident and its alerts."""
+    return _run("incidents_and_alerts")
 
 
 def _run(key: str, **parameters: Any) -> list[dict[str, Any]]:
