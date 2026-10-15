@@ -14,7 +14,7 @@ The written reports for both phases.
 |------|----------|
 | `deliverable2.md` | The Phase 2 report: architecture, design choices, limitations and an evidence index. Points to the three documents below rather than restating them |
 | `detection-rules.md` | The rule catalogue — name, purpose, input events, detection condition, severity, generated alert and recommended response for each of the four rules, plus the design trap each rule avoids. Five of the seven properties print from the code with `python -m soc.rules.main --catalogue` |
-| `rag-demonstration.md` | Six question types and both refusal paths, each with the question, the retrieved evidence, the generated answer and the retrieval method. Real captured output |
+| `rag-demonstration.md` | Seven question types and both refusal paths, each with the question, the retrieved evidence, the generated answer and the retrieval method. Real captured output |
 
 The graph model is not in this folder: it lives with the code it describes, at
 `kg/model/graph_model.md`, so a test can cross-check it against `graph_model.py` and the loaders.

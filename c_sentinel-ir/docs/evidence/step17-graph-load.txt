@@ -1,6 +1,58 @@
+Description: step 17 - graph load, captured 15 October 2026 against Neo4j 5.22, from an empty graph
+Description: command - python -m kg.loader.main --file docs/evidence/step15-attack-events.jsonl (run twice)
+
+=== First load ===
+Events collected: 25
+Writes for topology: 30
+Writes for events: 130
 Writes for security-knowledge: 56
 Schema statements applied: 17
 Applied topology: 30
-Applied events: 109
+Applied events: 130
 Applied security-knowledge: 56
 Graph load complete.
+
+=== Second load (idempotency) ===
+Events collected: 25
+Writes for topology: 30
+Writes for events: 130
+Writes for security-knowledge: 56
+Schema statements applied: 17
+Applied topology: 30
+Applied events: 130
+Applied security-knowledge: 56
+Graph load complete.
+
+Description: after both loads - 69 nodes, 147 edges
+Description: node labels populated - 12
+  Alert: 4
+  Asset: 6
+  Control: 4
+  Document: 3
+  Endpoint: 5
+  Event: 25
+  Incident: 1
+  Role: 2
+  Service: 4
+  Threat: 8
+  User: 4
+  Vulnerability: 3
+Description: relationship types populated - 18
+  ACCESSED: 1
+  AFFECTS: 1
+  CONCERNS: 2
+  CONTAINS: 4
+  CREATED_ALERT: 21
+  DEPENDS_ON: 1
+  DESCRIBES: 3
+  EXPLOITS: 8
+  EXPOSES: 5
+  GENERATED_BY: 25
+  HAS_ROLE: 3
+  INDICATES: 4
+  MITIGATES: 10
+  SUBTECHNIQUE_OF: 4
+  SUPPORTS_RESPONSE_TO: 5
+  TARGETED: 25
+  TARGETS: 4
+  TRIGGERED: 21

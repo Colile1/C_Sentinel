@@ -28,7 +28,7 @@ marked resilience pattern feeding the SOC layer.
 | 1 | Multiple Failed Logins | `AUTH_FAILED` | 5 minutes | 5 per subject | HIGH |
 | 2 | Unauthorised Endpoint Access | `UNAUTHORISED_ACCESS`, any 401/403 | 10 minutes | 3 per subject | MEDIUM, HIGH on a privileged route |
 | 3 | Abnormal Request Rate | `RATE_LIMIT_EXCEEDED`, `REQUEST_RECEIVED` | 1 minute | 3 refusals **or** 30 requests per source | HIGH |
-| 4 | Service Failure | `CIRCUIT_OPENED`, `DEPENDENCY_FAILURE`, `SERVICE_ERROR` | 5 minutes | 1 opened circuit **or** 3 failures | HIGH |
+| 4 | Service Failure | `CIRCUIT_OPENED`, `HEALTH_CHECK_FAILED`, `DEPENDENCY_FAILURE`, `SERVICE_ERROR` | 5 minutes | 1 opened circuit **or** 1 failing health check **or** 3 failures | HIGH |
 
 ---
 
@@ -121,8 +121,8 @@ making more than thirty in a minute is already at half the gateway's ceiling.
 | Property | Value |
 |----------|-------|
 | **Purpose** | Detect a service losing a dependency or returning server errors, so the outage is investigated before it reaches every caller. |
-| **Input events** | `CIRCUIT_OPENED`, `DEPENDENCY_FAILURE`, `SERVICE_ERROR`. `CIRCUIT_CLOSED` is read but never fires the rule. |
-| **Detection condition** | Within a five-minute window, per service: **any** `CIRCUIT_OPENED` event — no threshold — **or** three or more `DEPENDENCY_FAILURE` / `SERVICE_ERROR` events. |
+| **Input events** | `CIRCUIT_OPENED`, `HEALTH_CHECK_FAILED`, `DEPENDENCY_FAILURE`, `SERVICE_ERROR`. `CIRCUIT_CLOSED` is read but never fires the rule. |
+| **Detection condition** | Within a five-minute window, per service: **any** `CIRCUIT_OPENED` or `HEALTH_CHECK_FAILED` event — no threshold — **or** three or more `DEPENDENCY_FAILURE` / `SERVICE_ERROR` events. |
 | **Severity** | HIGH |
 | **Generated alert** | `Service Failure`, naming the failing service and which signal fired; a `CIRCUIT_CLOSED` in the window annotates the description with the recovery but does not suppress the alert. |
 | **Recommended response** | Check the health of the failing dependency and the circuit breaker's state, confirm the documented fallback is being served, and restart the dependency if it is down. |
@@ -132,6 +132,11 @@ after the configured number of *whole* requests failed, each having exhausted it
 (D-16). By the time `CIRCUIT_OPENED` is emitted the system has independently established that a
 dependency is down. Requiring this rule to see that happen three more times would delay the alert
 past the point where it is useful.
+
+**Why a failing health check needs no threshold either.** Consul marks a check critical only after
+watching it fail, and a service too broken to answer emits nothing else for the rule to count.
+`HEALTH_CHECK_FAILED` comes from `soc/collector/health.py`, which reads Consul's critical checks
+when the collector runs against the live stack.
 
 **Why recovery never fires it.** `CIRCUIT_CLOSED` is read only to note recovery in the description.
 An alarm on recovery trains the responder to ignore the ones that matter.
@@ -148,15 +153,17 @@ The build order's step-15 verification is that each rule fires on a scripted att
 silent on the normal workflow**. Both halves are tested, and the silent half twice:
 
 ```bash
-python scripts/capture_attack_evidence.py                                    # 22-event attack
+python scripts/capture_attack_evidence.py                                    # 25-event attack
 python -m soc.rules.main --file docs/evidence/step15-attack-events.jsonl     # 5 alerts, all 4 rules
 python -m soc.rules.main --file docs/evidence/step12-correlated-logs.jsonl   # 0 alerts
 ```
 
 The attack is one story in order: an attacker brute-forces an analyst account, gets in, probes
-endpoints its role does not cover including the admin route, then floods the gateway until the rate
-limiter refuses it and `asset-service` falls over behind the breaker. It raises **five alerts from
-all four rules** — Rule 1 twice, once per key.
+endpoints its role does not cover including the admin route, reads the critical asset
+`core-auth-db`, then floods the gateway until the rate limiter refuses it and `asset-service` falls
+over behind the breaker; the responder then raises an incident against `core-auth-db`. It raises
+**five alerts from all four rules** — Rule 1 twice, once per key. The asset read and the incident
+events fire no rule; they give the knowledge graph its `Asset` and `Incident` links.
 
 The silent direction is checked against a hand-built clean workflow fixture *and* against
 `docs/evidence/step12-correlated-logs.jsonl`, a **real 16-event capture taken off the running stack

@@ -2,7 +2,7 @@
 
 The Phase 2 specification (§11.6) requires at least three natural-language questions demonstrated,
 each showing the user question, the retrieved graph evidence, the generated answer, and an
-explanation of which retrieval method produced it. Six question types are supported and all six are
+explanation of which retrieval method produced it. Seven question types are supported and all seven are
 shown here, plus both refusal paths.
 
 Every transcript below is real output, captured against Neo4j 5.22 with the graph loaded from the
@@ -13,13 +13,14 @@ of them with
 
 ```bash
 python -m rag.generation.main "<question>"
-python -m rag.generation.main --questions      # the six supported shapes
+python -m rag.generation.main --questions      # the seven supported shapes
 python -m rag.generation.main --demo           # the scenario question, live
 ```
 
 ## The retrieval method, in one paragraph
 
-This is **Option A, Cypher-based GraphRAG**, with **Option C template generation** on top. It is
+This is **Option A, Cypher-based GraphRAG**, with **Option C template generation** on top, and an
+optional LLM generator that rephrases the same evidence (below). Retrieval is
 three named steps, each its own module, because the specification marks the ability to *explain*
 retrieval rather than to call a model:
 
@@ -27,8 +28,8 @@ retrieval rather than to call a model:
    a list of phrases; a question scores one point per phrase present; the highest score wins; ties
    break on declaration order. It is deterministic — a test asserts the same question classifies
    identically ten times — and it can be read aloud, which an embedding cannot.
-2. **`rag/retrieval/cypher_builder.py` — which query answers it?** Each of the six intents maps onto
-   one of the **five Cypher queries already demonstrated at build step 18**. No new Cypher exists in
+2. **`rag/retrieval/cypher_builder.py` — which query answers it?** Each of the seven intents maps
+   onto one of the **six demonstrated Cypher queries** in `kg/cypher`. No new Cypher exists in
    the RAG layer, so the queries the marker watches run there are the queries that run here. Two
    tests guard both directions of that mapping.
 3. **`rag/retrieval/retriever.py` — run it and shape the rows.** The entity id extracted from the
@@ -39,8 +40,21 @@ Generation is **template-based**. Every slot in every sentence is read out of
 an `EvidenceNode`, so an answer is *structurally* incapable of stating something the graph does not
 hold. `rag/tests/test_grounding.py` enforces this mechanically: it extracts every alert id, event
 id, technique id and service name from the answer text and asserts each appears in the evidence's
-nodes, properties or bound parameters. No LLM is called; `llm_generator.py` is deliberately not
-built, though the seam (`generate(evidence) -> Answer`, and `Answer.method`) is kept.
+nodes, properties or bound parameters. The transcripts below are all template answers.
+
+**Optional LLM phrasing.** `python -m rag.generation.main --llm "<question>"` runs the same retrieval,
+then asks Google Gemini to phrase the answer from only the question and the rendered evidence block,
+under an instruction to add nothing the evidence does not hold. On any failure it falls back to the
+template. The evidence block is identical either way; only the answer sentence and its
+`Generation method` line change. For example, for *"Which alerts affect auth-service?"*:
+
+> The alerts affecting `auth-service` are `alt-73ab374a6be9` (Multiple Failed Logins with HIGH
+> severity) and `alt-9a2dbbbe50e9` (Unauthorised Endpoint Access with HIGH severity).
+>
+> Generation method: graph-grounded LLM (gemini-3.5-flash-lite)
+
+Both refusal paths below stay template answers under `--llm`: with no evidence there is nothing to
+phrase, so the LLM is never called.
 
 Because retrieval is a single parameterised Cypher query per question, the retrieval method reported
 on every answer is the same: **Cypher query over the Neo4j knowledge graph**, with the intent, the
@@ -57,17 +71,18 @@ the specification asks for — it says exactly how the answer was reached.
 | `THREAT_MITIGATION` | "which threats …" | `q3_threats_for_service` |
 | `USER_LINKAGE` | "which users …" | `q2_users_high_severity` |
 | `DEPENDENCY_IMPACT` | "impact if …" | `q5_dependency_impact` |
+| `INCIDENT_LINKAGE` | "which incidents …", "… wider security incident" | `q6_incidents_and_alerts` |
 | `UNSUPPORTED` | anything else | none — the question is refused |
 
 ---
 
 ## Question 1 — the demonstration scenario question
 
-> **Why was alert `alt-186f128e294e` created and what should be done?**
+> **Why was alert `alt-73ab374a6be9` created and what should be done?**
 
 **Generated answer**
 
-> Alert alt-186f128e294e was created by the detection rule 'Multiple Failed Logins'. The alert
+> Alert alt-73ab374a6be9 was created by the detection rule 'Multiple Failed Logins'. The alert
 > indicates ATT&CK technique T1110 (Brute Force). The rule's recommended action is: Temporarily
 > block the source IP at the gateway and verify whether the targeted account is compromised; force
 > a password reset if it is. The controls that mitigate this threat are Forced password reset,
@@ -78,7 +93,7 @@ the specification asks for — it says exactly how the answer was reached.
 
 ```
 Retrieved nodes: 7
-  - (:Alert {alertId: 'alt-186f128e294e'}) ruleName='Multiple Failed Logins'
+  - (:Alert {alertId: 'alt-73ab374a6be9'}) ruleName='Multiple Failed Logins'
       recommendedAction='Temporarily block the source IP at the gateway and verify
       whether the targeted account is compromised; force a password reset if it is.'
   - (:Threat {techniqueId: 'T1110'}) name='Brute Force'
@@ -88,7 +103,7 @@ Retrieved nodes: 7
   - (:Document {title: 'Runbook: suspected account compromise'})
   - (:Document {title: 'Runbook: brute-force response'})
 Retrieved relationships: 6
-  - (alt-186f128e294e) -[:INDICATES]-> (T1110)
+  - (alt-73ab374a6be9) -[:INDICATES]-> (T1110)
   - (Forced password reset) -[:MITIGATES]-> (T1110)
   - (Multi-factor authentication) -[:MITIGATES]-> (T1110)
   - (Account lockout) -[:MITIGATES]-> (T1110)
@@ -97,7 +112,7 @@ Retrieved relationships: 6
 Source documents: 2
 Retrieval method: Cypher query over the Neo4j knowledge graph
   Intent: ALERT_EXPLANATION   Query: controls_for_alert
-  Parameters: {'alertId': 'alt-186f128e294e'}
+  Parameters: {'alertId': 'alt-73ab374a6be9'}
 ```
 
 **Method** — Cypher, single query, graph traversal three hops deep:
@@ -112,9 +127,9 @@ three control names and both runbook titles.
 **Generated answer**
 
 > 2 alert(s) affect auth-service:
->   - alt-186f128e294e: Multiple Failed Logins (HIGH, OPEN) — 6 failed logins from 203.0.113.9
+>   - alt-73ab374a6be9: Multiple Failed Logins (HIGH, OPEN) — 6 failed logins from 203.0.113.9
 >     within 5 minutes, against 1 username.
->   - alt-de2e25686f78: Unauthorised Endpoint Access (HIGH, OPEN) — 3 unauthorised requests from
+>   - alt-9a2dbbbe50e9: Unauthorised Endpoint Access (HIGH, OPEN) — 3 unauthorised requests from
 >     analyst-1 within 10 minutes across 3 endpoints including the privileged route
 >     /api/v1/auth/users.
 
@@ -148,7 +163,7 @@ Intent `THREAT_MITIGATION`.
 **Generated answer**
 
 > 1 user account(s) are linked to HIGH or CRITICAL alerts:
->   - analyst-1 on Unauthorised Endpoint Access [HIGH], 17 event(s) of evidence
+>   - analyst-1 on Abnormal Request Rate [HIGH], 17 event(s) of evidence
 
 **Retrieved evidence** — 18 nodes (the `User` plus the 17 `Event` nodes it triggered) and 17
 `(analyst-1)-[:TRIGGERED]->(evt-…)` relationships. The count in the answer is the number of
@@ -170,6 +185,28 @@ relationships displayed beneath it.
 `DEPENDENCY_IMPACT`. This is a variable-length traversal over `DEPENDS_ON`, and it returns the one
 real dependency in the system — `incident-service` calling `asset-service` through the circuit
 breaker — rather than a hand-authored edge.
+
+---
+
+## Question 6 — which incidents are linked to repeated failed logins?
+
+> **Which incidents are linked to repeated failed logins?**
+
+**Generated answer**
+
+> 1 incident(s) group the alerts:
+>
+> - incident-1 [CRITICAL] against asset core-auth-db contains alt-82589bc075c8 (Service Failure),
+>   alt-f9e4183f0b85 (Abnormal Request Rate), alt-73ab374a6be9 (Multiple Failed Logins) and
+>   alt-9a2dbbbe50e9 (Unauthorised Endpoint Access)
+
+**Retrieved evidence** — 6 nodes (the `Incident`, its `Asset`, and the four `Alert` nodes it
+contains) and 5 relationships: `(incident-1)-[:AFFECTS]->(core-auth-db)` and four
+`(incident-1)-[:CONTAINS]->(alt-…)` edges. The *Multiple Failed Logins* alert among them is the
+link the question asks about.
+
+**Method** — Cypher, `incidents_and_alerts` (`q6`), no parameters. Intent `INCIDENT_LINKAGE`. The
+same query answers *"Which alerts may indicate a wider security incident?"*.
 
 ---
 
@@ -200,12 +237,14 @@ not a guard clause someone remembered to write.
 
 ## Limitations
 
-- **Six question shapes, not open-ended language.** The classifier is a keyword table. A question
+- **Seven question shapes, not open-ended language.** The classifier is a keyword table. A question
   phrased outside those shapes is refused rather than mis-answered, which is the correct failure
   direction, but it is a genuine limit compared with an LLM front end.
 - **One query per question.** Multi-hop questions that would need two queries joined are not
-  supported; the intent map is deliberately one-to-one with the five demonstrated queries.
+  supported; each intent maps onto exactly one of the six demonstrated queries.
 - **No conversational memory.** Each question is answered independently; "and what about that one?"
   will not resolve.
-- **Template phrasing.** Answers read as generated, because they are. That is the trade accepted in
-  D-34 for the guarantee that no sentence can contain a fact the graph does not hold.
+- **Template phrasing, or instructed grounding.** Template answers read as generated, because
+  they are; that is the price of the guarantee that no sentence can contain a fact the graph does
+  not hold. The optional `--llm` answers read naturally, but their grounding rests on the
+  instruction and on the evidence printed beneath them rather than on construction.

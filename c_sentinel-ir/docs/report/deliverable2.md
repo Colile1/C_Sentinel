@@ -47,9 +47,9 @@ the Pydantic model, so the two cannot drift.
                                     ▼
                       ┌───────────────────────────┐      ┌──────────────────────┐
                       │ kg/loader → Neo4j         │◀─────│ MITRE ATT&CK         │
-                      │ 12 labels, 15 rel. types  │      │ T1110, T1078, …      │
+                      │ 12 labels, 18 rel. types  │      │ T1110, T1078, …      │
                       └────────────┬──────────────┘      └──────────────────────┘
-                                   │  5 Cypher queries (kg/cypher)
+                                   │  6 Cypher queries (kg/cypher)
                                    ▼
                       ┌───────────────────────────┐
                       │ rag/retrieval             │  intent → query → rows
@@ -61,7 +61,7 @@ Three things about this shape are worth stating, because each was a decision rat
 
 **The layers are one-directional and each is a pure function of the one before it.** A rule is a
 pure function of the event store's contents and an injected clock; a loader is a pure function
-returning a list of writes; a retriever shapes rows. Nothing reaches backwards. This is why 551 unit
+returning a list of writes; a retriever shapes rows. Nothing reaches backwards. This is why 598 unit
 tests run with no container, no network and no database — the only components that need a server are
 the ones that genuinely talk to Neo4j, and those tests are marked `neo4j` and skip cleanly without
 one.
@@ -109,6 +109,14 @@ and *Abnormal Request Rate* on **both** of its signals at once — from genuine 
 capture. Permitted traffic emits nothing at the gateway, because the upstream service already logs
 it and a second copy would double-count Rule 3's volume signal.
 
+**Service health is a fifth source.** A service that has stopped answering cannot log that it is
+unhealthy, so its own stream goes quiet exactly when it matters. `soc/collector/health.py` asks
+Consul — which already polls every service's `/health` — for critical checks, and turns each into a
+`HEALTH_CHECK_FAILED` event on the same schema, named for the failing service. The live source adds
+these automatically. **Verified live:** with `asset-service` stopped, the collector reports
+`HEALTH_CHECK_FAILED` among its event types and Rule 4 raises *"asset-service is failing: its health
+check is failing"*.
+
 ## 4. Detection rules
 
 Four rules, documented in full in [detection-rules.md](detection-rules.md): Multiple Failed Logins,
@@ -154,8 +162,8 @@ events that caused it, always.
 ## 6. The knowledge graph
 
 The model is documented in full at [kg/model/graph_model.md](../../kg/model/graph_model.md): **12
-node labels and 15 relationship types**, covering every label §4.1 requires and every relationship
-§4.2 lists. `schema.cypher` puts a uniqueness constraint on each label's natural key, and a test
+node labels and 18 relationship types**, covering every label §4.1 requires and every relationship
+§4.2 lists, plus `SUBTECHNIQUE_OF`, `ACCESSED`, `CONCERNS` and `AFFECTS`. `schema.cypher` puts a uniqueness constraint on each label's natural key, and a test
 cross-checks the document, the Python model and the loaders against each other so the diagram cannot
 drift from the code.
 
@@ -165,37 +173,44 @@ The three required sources are three loader modules:
    protects them, the asset register, the seeded accounts and their roles, and the one real
    `incident-service -[:DEPENDS_ON]-> asset-service` edge.
 2. **Live events and alerts** — every collected `SecurityEvent` and every raised `Alert`, wired with
-   `TRIGGERED`, `GENERATED_BY`, `TARGETED` and `CREATED_ALERT`.
+   `TRIGGERED`, `GENERATED_BY`, `TARGETED` and `CREATED_ALERT`. Incident events become `Incident`
+   nodes linked to the asset they were raised against (`AFFECTS`), and a read of a critical asset
+   links the event to that asset (`ACCESSED`). An incident `CONTAINS` every HIGH or CRITICAL alert
+   with evidence in the 30 minutes before it was raised — the time-window grouping a SOC uses when a
+   responder opens an incident in reaction to what is firing.
 3. **Security knowledge** — MITRE ATT&CK T1110 Brute Force with sub-techniques T1110.001–.004, plus
    T1078, T1498 and T1499, one per remaining rule (D-31); the vulnerabilities they exploit; the
    controls that mitigate them; and the response runbooks.
 
 Loaders are pure functions returning `list[Write]`, plus one `apply(session, writes)`. The logic is
 therefore testable with no database, and **reloading is idempotent**: `load_events.with_stable_ids`
-re-keys alerts onto a content hash (D-32), so two consecutive loads produce 65 nodes and 130 edges,
+re-keys alerts onto a content hash (D-32), so two consecutive loads produce 69 nodes and 147 edges,
 not double.
 
-**Verified live** against Neo4j 5.22: 11 of the 12 labels populated (`Incident` is constrained in
-the schema but holds no nodes; see §9), the real dependency edge returned by a topology query, and
-a failed-login alert reaching a control in three hops —
-`(:Alert)-[:INDICATES]->(:Threat)<-[:MITIGATES]-(:Control)`.
+**Verified live** against Neo4j 5.22: all 12 labels and all 18 relationship types populated, the
+real dependency edge returned by a topology query, and a failed-login alert reaching a control in
+three hops — `(:Alert)-[:INDICATES]->(:Threat)<-[:MITIGATES]-(:Control)`. The attack capture's
+incident-response phase loads `incident-1`: CRITICAL after escalation, `AFFECTS` the asset
+`core-auth-db` — the same asset the compromised `analyst-1` account `ACCESSED` — and `CONTAINS`
+the alerts from all four rules.
 
-**Five Cypher queries** (`kg/cypher/q1..q5`) are demonstrated, each opening with the plain-English
+**Six Cypher queries** (`kg/cypher/q1..q6`) are demonstrated, each opening with the plain-English
 question it answers, each returning non-empty results on the seeded graph, and each served over the
 graph API. They are listed in [rag-demonstration.md](rag-demonstration.md).
 
 ## 7. GraphRAG
 
-Documented in full, with all six question types and both refusal paths, in
+Documented in full, with all seven question types and both refusal paths, in
 [rag-demonstration.md](rag-demonstration.md). The pattern is **Option A (Cypher-based GraphRAG)**
-with **Option C (template) generation**, and it is three named steps because the specification marks
+with **Option C (template) generation** by default, plus an optional LLM generator that rephrases
+the same evidence (below). Retrieval is three named steps because the specification marks
 the ability to explain retrieval rather than to call a model: classify the intent → select the query
 → run it and shape the rows.
 
 Two properties are worth defending as design choices:
 
-**No new Cypher exists in the RAG layer.** All six intents map onto the five queries demonstrated at
-build step 18, so the queries the marker watches run are the queries the RAG layer runs. Two tests
+**No new Cypher exists in the RAG layer.** All seven intents map onto the six demonstrated
+queries, so the queries the marker watches run are the queries the RAG layer runs. Two tests
 guard both directions of the map, so an added intent without a query, or a query without a shaper,
 fails the build.
 
@@ -203,18 +218,29 @@ fails the build.
 (D-34).** Every slot in every sentence is read out of an `EvidenceNode`, so an answer is
 *structurally* incapable of stating something the graph does not hold. `test_grounding.py` enforces
 this: it extracts every alert id, event id, technique id and service name from the answer text and
-asserts each appears in the evidence's nodes, properties or bound parameters. An LLM answer would
-have read better and could only ever have been *checked* for grounding, not *guaranteed* it. The
-seam for an LLM generator is kept (`generate(evidence) -> Answer`, and `Answer.method`) but
-deliberately not built.
+asserts each appears in the evidence's nodes, properties or bound parameters.
+
+**An optional LLM generator rephrases the evidence; it never replaces retrieval.** With `--llm`,
+`rag/generation/llm.py` sends Google Gemini (`gemini-3.5-flash-lite` by default) exactly two
+things: the question and the rendered evidence block — the same block printed under every answer.
+A system instruction tells it to answer only from that evidence, add no fact, technique, control or
+recommendation it does not contain, and say the graph does not hold the answer when it does not.
+Any failure — no `GEMINI_API_KEY`, an empty retrieval, a timeout, a rate limit, an overloaded model
+or an empty reply — falls back to the template, so a question is always answered. Each answer's
+`Generation method` line names which generator produced it (`template` or
+`graph-grounded LLM (gemini-3.5-flash-lite)`), and the evidence block beneath is identical either
+way. The trade is explicit: the LLM reads better, but its grounding is *instructed and checkable*
+against the displayed evidence, whereas the template's is *guaranteed* by construction. That is why
+the template stays the default and the one the grounding tests exercise.
 
 **Parameters are bound, never interpolated.** An entity id comes from a user's question; a test
 asserts it reaches the driver as a parameter and never appears in the query text.
 
 **Verified live:** the specification's own question — *"Why was alert alt-… created and what should
 be done?"* — answers with the rule, T1110 Brute Force, three controls and two runbooks, **7 nodes
-and 6 relationships displayed**, and every claim mapped to a displayed node. All six question types
-return grounded evidence; both refusal paths answer honestly.
+and 6 relationships displayed**, and every claim mapped to a displayed node. All seven question
+types return grounded evidence — including the specification's *"Which incidents are linked to
+repeated failed logins?"* — and both refusal paths answer honestly.
 
 ## 8. The demonstration workflow
 
@@ -242,26 +268,35 @@ Stated plainly, because the specification marks the explanation of limitations:
 
 - **The alert store is in-process.** Alerts do not survive a restart; they are re-derivable by
   re-running the rules over the event stream, and are persisted meaningfully only in the graph.
-- **No LLM.** Answers read as generated. This was chosen (D-34) for the structural grounding
-  guarantee; the trade is fluency for verifiability.
-- **Six question shapes, not open-ended language.** A question outside them is refused rather than
-  mis-answered — the correct failure direction, but a real limit.
+- **LLM answers are instructed to stay grounded, not guaranteed to.** The default template
+  generator cannot state anything the graph does not hold; the optional Gemini generator is told not
+  to, and its answer can be checked against the evidence printed beneath it, but no test can
+  enforce that for free text. It also depends on an external free-tier service: answers take about
+  8–20 seconds, the larger Gemini models were often overloaded during testing, and any failure falls
+  back to the template answer.
+- **The LLM is only as informed as the evidence block.** Where a query's evidence answers a
+  neighbouring question rather than the one asked, the LLM says the graph does not hold the answer —
+  for example, "which users are linked to repeated failed logins?" retrieves users linked to
+  high-severity alerts, and the one user found is linked to a high-severity alert that is not a
+  failed-login one.
+- **Seven question shapes, not open-ended language.** A question outside them is refused rather
+  than mis-answered — the correct failure direction, but a real limit.
 - **The demonstration runs off a committed attack capture, not a live attack.** The capture is
   reproducible from `scripts/capture_attack_evidence.py`, and its live twin exists
   (`client/failed_login_demo.py` plus the gateway burst in `tests/integration`), but staging a real
   attack on camera makes a recording depend on timing that cannot be rehearsed.
-- **`Incident` nodes and `CONTAINS` edges are modelled but not populated.** The label is in the
-  model and carries a uniqueness constraint in `schema.cypher`, but no loader writes it, so the live
-  graph holds no `Incident` nodes and the question "which incidents are linked to repeated failed
-  logins?" cannot yet be answered. The next step is a loader that turns `INCIDENT_CREATED` events
-  into `Incident` nodes and links each to the alerts that share its correlation ID or affected
-  entity. `Asset` nodes are loaded from the register but are not yet linked to anything.
-- **Health information arrives as events, not as health-check data.** Service health reaches the
-  SOC layer through the circuit breaker's `CIRCUIT_OPENED`, `DEPENDENCY_FAILURE` and
-  `SERVICE_ERROR` events, which Rule 4 reads. The health checks themselves (Consul's `/health`
-  polling, Docker's container health, Prometheus's `up` metric) are visible in Consul and Grafana
-  but are not ingested by the collector, so a service that fails its health check without a caller
-  noticing raises no alert.
+- **Incidents are grouped by time, not by investigation.** An incident contains every HIGH or
+  CRITICAL alert with evidence in the 30 minutes before it was raised. That is the grouping a
+  responder makes when opening an incident against what is firing, but it can include an unrelated
+  alert that happened to fire in the same window; a responder linking alerts explicitly would need
+  an API for it, which incident-service does not have.
+- **Asset links rest on event messages.** The schema's thirteen fields have no asset field, so the
+  loader reads the asset name from the `INCIDENT_CREATED` and `ASSET_ACCESSED` messages, both
+  written by this codebase. Incidents created before that message named the asset carry no
+  `AFFECTS` edge.
+- **Health is polled, not streamed.** Consul's critical checks are read whenever the collector runs
+  against the live stack, so a check that failed and recovered between two runs is not seen. Docker
+  container health and Prometheus's `up` metric are visible in their own tools but are not collected.
 
 ## 10. Evidence index
 
@@ -271,11 +306,11 @@ Stated plainly, because the specification marks the explanation of limitations:
 | The scripted attack, as events | [step15-attack-events.jsonl](../evidence/step15-attack-events.jsonl) |
 | Detection run — 5 alerts, and 0 on the clean capture | [step15-detection-run.txt](../evidence/step15-detection-run.txt) |
 | Graph load — labels, dependency edge, idempotency | [step17-graph-load.txt](../evidence/step17-graph-load.txt) |
-| The five Cypher queries, live | [step18-cypher-queries.txt](../evidence/step18-cypher-queries.txt) |
-| RAG answers — six question types, both refusals | [step19-rag-answers.txt](../evidence/step19-rag-answers.txt) |
+| The Cypher queries, live | [step18-cypher-queries.txt](../evidence/step18-cypher-queries.txt) |
+| RAG answers — the question types, both refusals | [step19-rag-answers.txt](../evidence/step19-rag-answers.txt) |
 | The complete workflow, one pass | [step20-security-workflow.txt](../evidence/step20-security-workflow.txt) |
 
-**Tests:** 551 unit tests, 0 failures, none requiring a container, a network or a database — of
+**Tests:** 598 unit tests, 0 failures, none requiring a container, a network or a database — of
 which 16 are `neo4j`-marked, passing against a live server and skipping cleanly without one. Run
-per suite: libs + contract 196, soc 94, kg 42, rag 77, auth 67, incident 39,
-asset 36.
+per suite: libs + contract 205, soc 100, kg 49, rag 89, console 13, auth 67, incident 39,
+asset 36. The 12 integration tests also pass against the running stack.

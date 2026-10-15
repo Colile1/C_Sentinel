@@ -4,7 +4,7 @@ The console is one browser interface over the whole of Sentinel-IR. Every Phase 
 operation and every Phase 2 security stage can be driven from it: incidents, assets and users;
 the platform underneath them (gateway enforcement, the Consul registry, the containers, one
 database per service); the security event stream; detection and alert triage; the Neo4j
-knowledge graph, an alert's neighbourhood drawn as a picture, and the five queries; GraphRAG
+knowledge graph, an alert's neighbourhood drawn as a picture, and the six queries; GraphRAG
 answers with their evidence; the project's own demo and evidence scripts; and a trace of every
 gateway call with its correlation ID. A Demo guide turns both demo scripts into checklists, so
 each demonstration video can be recorded from this one window.
@@ -65,7 +65,7 @@ the tab closes.
 | `console/stack_status.py` | Parallel health probes for the Overview screen; the Neo4j Bolt check every graph call makes first; the tool links |
 | `console/platform_api.py` | Consul's registered instances and checks; the containers with their images; stop and start for the three services and their three databases only; each database's tables with exact row counts; the three gateway probes |
 | `console/soc_api.py` | Event explorer with facets over three sources, rule catalogue, detection runs, and resolving an alert's `relatedEvents` back to full events |
-| `console/graph_api.py` | The five queries with their Cypher, node counts per label, an alert's neighbourhood for drawing, graph reload, the graph's alert ids, and GraphRAG questions |
+| `console/graph_api.py` | The six queries with their Cypher, node counts per label, an alert's neighbourhood for drawing, graph reload, the graph's alert ids, and GraphRAG questions |
 | `console/actions.py` | The fixed catalogue of runnable scripts and the runner |
 | `console/static/` | The single-page UI: plain HTML, CSS and JavaScript, no framework and no build step |
 | `console/tests/test_console.py` | The console's HTTP contract, with no containers running |

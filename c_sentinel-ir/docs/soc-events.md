@@ -44,6 +44,7 @@ later.
 | `DEPENDENCY_FAILURE` | incident-service | A call to asset-service failed after retries | Rule 4 — service failure |
 | `CIRCUIT_OPENED` / `CIRCUIT_CLOSED` | incident-service | Breaker state change | Rule 4, and the pattern demo |
 | `SERVICE_ERROR` | all services | Unhandled 5xx | Rule 4 |
+| `HEALTH_CHECK_FAILED` | SOC collector, from Consul (named for the failing service) | A service's Consul health check is critical | Rule 4 — service failure |
 
 ## Worked example
 

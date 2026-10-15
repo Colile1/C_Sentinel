@@ -1,28 +1,18 @@
 Description: step 20 - the Phase 2 security workflow, end to end in one pass
-Description: captured 4 September 2026 against Neo4j 5.22, from an empty graph
-Description: command - python scripts/run_security_workflow.py
+Description: captured 15 October 2026 against Neo4j 5.22, from an empty graph
+Description: command - python scripts/run_security_workflow.py --skip-capture
 
 
 ======================================================================
-Stage 1/4: The attack, as security events collected from the services
-Command: C:\Users\Colile\Documents\School\NWU\S2\Project3\c_sentinel-ir\.venv\Scripts\python.exe scripts/capture_attack_evidence.py
+Stage 1/3: The detection rules read the events and raise alerts
+Command: D:\S2\Project3\c_sentinel-ir\.venv\Scripts\python.exe -m soc.rules.main --file docs/evidence/step15-attack-events.jsonl
 ======================================================================
-Attack events written: 22
-Output file: docs\evidence\step15-attack-events.jsonl
-Attack window: 2026-09-04T12:00:00Z to 2026-09-04T12:03:48Z
-Attacker address: 203.0.113.9
-Targeted account: analyst-1
-
-======================================================================
-Stage 2/4: The detection rules read the events and raise alerts
-Command: C:\Users\Colile\Documents\School\NWU\S2\Project3\c_sentinel-ir\.venv\Scripts\python.exe -m soc.rules.main --file docs/evidence/step15-attack-events.jsonl
-======================================================================
-Events evaluated: 22
+Events evaluated: 25
 Evaluation moment: 2026-09-04T12:03:48Z
 Alerts raised: 5
 Alerts stored: 5 (every related event resolves)
 
-Alert ID: alt-f56899b4976e
+Alert ID: alt-4fd41eb1b0b1
 Rule: Multiple Failed Logins
 Severity: HIGH
 Status: OPEN
@@ -33,7 +23,7 @@ Affected entity: login-endpoint
 Related events: 6
 Recommended action: Temporarily block the source IP at the gateway and verify whether the targeted account is compromised; force a password reset if it is.
 
-Alert ID: alt-2550a8cf4b58
+Alert ID: alt-507cb959122c
 Rule: Multiple Failed Logins
 Severity: HIGH
 Status: OPEN
@@ -44,7 +34,7 @@ Affected entity: login-endpoint
 Related events: 6
 Recommended action: Temporarily block the source IP at the gateway and verify whether the targeted account is compromised; force a password reset if it is.
 
-Alert ID: alt-113468012e23
+Alert ID: alt-bfbd673884a7
 Rule: Unauthorised Endpoint Access
 Severity: HIGH
 Status: OPEN
@@ -55,7 +45,7 @@ Affected entity: /api/v1/auth/users
 Related events: 3
 Recommended action: Review the subject's role assignment, audit the endpoints it was refused on, and revoke the token if the access pattern is not explainable by a legitimate client.
 
-Alert ID: alt-9970364a2b98
+Alert ID: alt-814a6cb1e74c
 Rule: Abnormal Request Rate
 Severity: HIGH
 Status: OPEN
@@ -66,7 +56,7 @@ Affected entity: 203.0.113.9
 Related events: 8
 Recommended action: Rate-limit or block the source address at the gateway, then check upstream capacity and confirm the affected services recovered.
 
-Alert ID: alt-ebd7ca388663
+Alert ID: alt-593be5aa3e26
 Rule: Service Failure
 Severity: HIGH
 Status: OPEN
@@ -78,40 +68,40 @@ Related events: 4
 Recommended action: Check the health of the failing dependency and the circuit breaker's state, confirm the documented fallback is being served, and restart the dependency if it is down.
 
 ======================================================================
-Stage 3/4: The events and alerts are loaded into Neo4j and linked
-Command: C:\Users\Colile\Documents\School\NWU\S2\Project3\c_sentinel-ir\.venv\Scripts\python.exe -m kg.loader.main --file docs/evidence/step15-attack-events.jsonl
+Stage 2/3: The events and alerts are loaded into Neo4j and linked
+Command: D:\S2\Project3\c_sentinel-ir\.venv\Scripts\python.exe -m kg.loader.main --file docs/evidence/step15-attack-events.jsonl
 ======================================================================
-Events collected: 22
+Events collected: 25
 Writes for topology: 30
-Writes for events: 109
+Writes for events: 130
 Writes for security-knowledge: 56
 Schema statements applied: 17
 Applied topology: 30
-Applied events: 109
+Applied events: 130
 Applied security-knowledge: 56
 Graph load complete.
 
 ======================================================================
-Stage 4/4: The RAG interface is asked why the alert was created
-Command: C:\Users\Colile\Documents\School\NWU\S2\Project3\c_sentinel-ir\.venv\Scripts\python.exe -m rag.generation.main --demo
+Stage 3/3: The RAG interface is asked why the alert was created
+Command: D:\S2\Project3\c_sentinel-ir\.venv\Scripts\python.exe -m rag.generation.main --demo
 ======================================================================
-Question: Why was alert alt-47752eae1af6 created and what should be done?
-Answer: Alert alt-47752eae1af6 was created by the detection rule 'Multiple Failed Logins'. The alert indicates ATT&CK technique T1110 (Brute Force). The rule's recommended action is: Temporarily block the source IP at the gateway and verify whether the targeted account is compromised; force a password reset if it is. The controls that mitigate this threat are Multi-factor authentication, Forced password reset and Account lockout. The response procedure is documented in Runbook: suspected account compromise and Runbook: brute-force response.
+Question: Why was alert alt-73ab374a6be9 created and what should be done?
+Answer: Alert alt-73ab374a6be9 was created by the detection rule 'Multiple Failed Logins'. The alert indicates ATT&CK technique T1110 (Brute Force). The rule's recommended action is: Temporarily block the source IP at the gateway and verify whether the targeted account is compromised; force a password reset if it is. The controls that mitigate this threat are Forced password reset, Multi-factor authentication and Account lockout. The response procedure is documented in Runbook: suspected account compromise and Runbook: brute-force response.
 Generation method: template
 
 Evidence:
   Retrieved nodes: 7
-    - (:Alert {alertId: 'alt-47752eae1af6'}) recommendedAction='Temporarily block the source IP at the gateway and verify whether the targeted account is compromised; force a password reset if it is.' ruleName='Multiple Failed Logins'
+    - (:Alert {alertId: 'alt-73ab374a6be9'}) recommendedAction='Temporarily block the source IP at the gateway and verify whether the targeted account is compromised; force a password reset if it is.' ruleName='Multiple Failed Logins'
     - (:Threat {techniqueId: 'T1110'}) name='Brute Force'
-    - (:Control {name: 'Multi-factor authentication'})
     - (:Control {name: 'Forced password reset'})
+    - (:Control {name: 'Multi-factor authentication'})
     - (:Control {name: 'Account lockout'})
     - (:Document {title: 'Runbook: suspected account compromise'})
     - (:Document {title: 'Runbook: brute-force response'})
   Retrieved relationships: 6
-    - (alt-47752eae1af6) -[:INDICATES]-> (T1110)
-    - (Multi-factor authentication) -[:MITIGATES]-> (T1110)
+    - (alt-73ab374a6be9) -[:INDICATES]-> (T1110)
     - (Forced password reset) -[:MITIGATES]-> (T1110)
+    - (Multi-factor authentication) -[:MITIGATES]-> (T1110)
     - (Account lockout) -[:MITIGATES]-> (T1110)
     - (Runbook: suspected account compromise) -[:SUPPORTS_RESPONSE_TO]-> (T1110)
     - (Runbook: brute-force response) -[:SUPPORTS_RESPONSE_TO]-> (T1110)
@@ -121,8 +111,8 @@ Evidence:
   Retrieval method: Cypher query over the Neo4j knowledge graph
     Intent: ALERT_EXPLANATION
     Query: controls_for_alert
-    Parameters: {'alertId': 'alt-47752eae1af6'}
+    Parameters: {'alertId': 'alt-73ab374a6be9'}
 
 ======================================================================
-Description: the security workflow completed all 4 stages
+Description: the security workflow completed all 3 stages
 ======================================================================
