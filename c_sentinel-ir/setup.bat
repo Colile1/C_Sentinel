@@ -80,6 +80,13 @@ if errorlevel 1 (
     echo [ERROR] Dependency install failed. Re-run setup.bat; pip resumes where it stopped.
     exit /b 1
 )
+rem The optional LLM answer generator (rag\generation\llm.py) runs on the host
+rem only, so its SDK is installed here rather than in the lock file the Docker
+rem images build from. Without it, `--llm` falls back to the template answer.
+".venv\Scripts\python.exe" -m pip install google-genai
+if errorlevel 1 (
+    echo [warn] The Gemini SDK did not install; --llm will use the template answer.
+)
 rem libs\common as an editable package, so `import common` works from every
 rem script, CLI and test run on the host.
 ".venv\Scripts\python.exe" -m pip install --no-deps -e .

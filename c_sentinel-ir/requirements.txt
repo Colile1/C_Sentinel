@@ -23,3 +23,5 @@ pytest-asyncio
 # Phase 2 only.
 neo4j
 # sentence-transformers  — install when build step 19 begins.
+google-genai
+python-dotenv

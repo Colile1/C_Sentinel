@@ -9,9 +9,28 @@ generation strategy can change without touching the part that has to be explaine
 |------|----------------|
 | `templates.py` | One answer template per intent, filled from the evidence. Template-based generation cannot hallucinate — every slot comes from a retrieved node. `generate(evidence) -> Answer` |
 | `answer.py` | `Answer` — the answer text, the evidence, and the generation method used. `render()` prints the answer followed by the evidence block |
-| `main.py` | `answer_question(question) -> Answer`, and the demo CLI |
+| `llm.py` | Optional. `generate_llm(evidence) -> Answer \| None` rephrases the retrieved evidence with an LLM. It sees only the question and the rendered evidence block, is instructed to add nothing the evidence does not hold, and returns None on any failure so the template answers instead |
+| `main.py` | `answer_question(question, use_llm=False) -> Answer`, and the CLI |
 
-`llm_generator.py` was planned here and is **deliberately not built** — see `DECISIONS.md` D-34.
+The template generator is the default and the one the grounding tests exercise. The LLM generator
+changes only the wording of an answer: retrieval, the evidence block and the method line are the
+same, and the method line names the model when the LLM was used
+(`graph-grounded LLM (gemini-2.5-flash)`).
+
+### Configuring the LLM generator
+
+Set these in `c_sentinel-ir/.env` (git-ignored):
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `GEMINI_API_KEY` | none | Required. Without it the LLM is never called |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | The Google Gemini model that phrases the answer |
+| `GEMINI_MAX_TOKENS` | `512` | Cap on the reply length |
+| `GEMINI_TIMEOUT_SECONDS` | `8` | Per-request timeout |
+
+An empty retrieval, a missing key, a timeout, a rate limit, an exhausted quota or a blocked
+reply all fall back to the template answer, so `--llm` never stops a question being
+answered.
 
 ## The rule
 
@@ -40,6 +59,7 @@ python -m rag.generation.main --demo        # the step-19 question, on a real al
                                             # (a Multiple Failed Logins one where
                                             #  the graph holds one — D-35)
 python -m rag.generation.main "Which alerts affect auth-service?"
+python -m rag.generation.main --llm "Which alerts affect auth-service?"   # LLM-phrased
 ```
 
 Needs `NEO4J_*` set and a reachable Neo4j; an answer that does not come from the graph is not an

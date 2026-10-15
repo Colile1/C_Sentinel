@@ -3,16 +3,19 @@ main.py - the question-answering entry point and the demo CLI.
 
 Thin, like every other entry point in this project: it parses arguments, calls
 `answer_question`, and prints. All the logic lives in `rag/retrieval` and
-`rag/generation/templates.py`.
+`rag/generation/templates.py` (and, optionally, `rag/generation/llm.py`).
 
     python -m rag.generation.main "Why was alert alt-abc123456789 created and
                                    what should be done?"
     python -m rag.generation.main --questions       # the six supported shapes
     python -m rag.generation.main --demo            # the step-19 question, run
                                                     # against the live graph
+    python -m rag.generation.main --demo --llm      # same, phrased by the LLM
 
 Needs a reachable Neo4j (`NEO4J_*`), because an answer that does not come from
-the graph is not an answer this project is willing to print.
+the graph is not an answer this project is willing to print. `--llm` is
+optional and always falls back to the template generator on any failure, so
+the demo never depends on an external API being reachable.
 
 Author: Colile
 """
@@ -23,6 +26,7 @@ import argparse
 import sys
 
 from rag.generation.answer import Answer
+from rag.generation.llm import generate_llm
 from rag.generation.templates import generate
 from rag.retrieval.intent import INTENTS
 from rag.retrieval.retriever import retrieve
@@ -32,14 +36,22 @@ from rag.retrieval.retriever import retrieve
 DEMO_QUESTION = "Why was alert {alert_id} created and what should be done?"
 
 
-def answer_question(question: str) -> Answer:
+def answer_question(question: str, use_llm: bool = False) -> Answer:
     """
     Purpose: the one public entry point - a question in, a grounded answer with
              its evidence out.
-    Inputs:  question - the user's natural-language question.
+    Inputs:  question - the user's natural-language question; use_llm - when
+             True, try the Gemini generator first and fall back to the
+             template generator on any failure (no key, no evidence, API
+             error). Default False keeps existing behaviour unchanged.
     Output:  an `Answer` carrying its `Evidence`.
     """
-    return generate(retrieve(question))
+    evidence = retrieve(question)
+    if use_llm:
+        llm_answer = generate_llm(evidence)
+        if llm_answer is not None:
+            return llm_answer
+    return generate(evidence)
 
 
 def supported_questions() -> list[str]:
@@ -107,6 +119,14 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="answer the step-19 question about an alert found in the graph",
     )
+    parser.add_argument(
+        "--llm",
+        action="store_true",
+        help=(
+            "phrase the answer with the Gemini API instead of the template "
+            "generator; falls back to the template on any failure"
+        ),
+    )
     arguments = parser.parse_args(argv)
 
     if arguments.questions:
@@ -134,7 +154,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("give a question, or --demo, or --questions")
 
     try:
-        answer = answer_question(question)
+        answer = answer_question(question, use_llm=arguments.llm)
     except Exception as error:  # noqa: BLE001 - report, do not traceback
         print(f"Description: the graph is unreachable: {error}", file=sys.stderr)
         return 1
