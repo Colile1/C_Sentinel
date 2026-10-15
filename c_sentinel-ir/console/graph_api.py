@@ -20,13 +20,13 @@ import contextlib
 import io
 from dataclasses import asdict
 from datetime import date, datetime
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from common.errors import ValidationError
+from common.errors import NotFoundError, ValidationError
 
 from kg.cypher.queries import QUERIES, get_query
 from kg.loader.connection import run_query
@@ -163,6 +163,75 @@ def graph_alerts() -> Any:
         "MATCH (a:Alert) RETURN a.alertId AS alertId, a.ruleName AS ruleName, "
         "a.severity AS severity ORDER BY a.ruleName, alertId"
     ))
+
+
+#: An alert's neighbourhood, as distinct relationships: everything one hop
+#: from the alert, the threat's own links (controls, runbooks, targeted
+#: service, vulnerabilities - but not other alerts), and the users behind the
+#: events. The two chains of Phase 2 demo section 4 in one picture.
+_NEIGHBOURHOOD = """
+MATCH (a:Alert {alertId: $alertId})
+CALL {
+  WITH a MATCH (a)-[r]-() RETURN r
+  UNION
+  WITH a MATCH (a)-[:INDICATES]->(:Threat)-[r]-(m) WHERE NOT m:Alert RETURN r
+  UNION
+  WITH a MATCH (a)<-[:CREATED_ALERT]-(:Event)<-[r:TRIGGERED]-(:User) RETURN r
+}
+WITH DISTINCT r
+RETURN elementId(startNode(r)) AS source, labels(startNode(r))[0] AS sourceLabel,
+       properties(startNode(r)) AS sourceProps, type(r) AS type,
+       elementId(endNode(r)) AS target, labels(endNode(r))[0] AS targetLabel,
+       properties(endNode(r)) AS targetProps
+LIMIT 200
+"""
+
+
+def _caption(label: str, properties: dict[str, Any]) -> str:
+    """
+    Purpose: a short display name for a node - a readable name where the
+             node has one, else its natural key.
+    Inputs:  label - the node label; properties - its properties.
+    Output:  the caption string.
+    """
+    from kg.model.graph_model import NODE_KEYS
+
+    for name in ("name", "title", "username"):
+        if properties.get(name):
+            return str(properties[name])
+    return str(properties.get(NODE_KEYS.get(label, ""), label))
+
+
+@router.get("/neighbourhood", summary="An alert's neighbourhood, for drawing")
+def neighbourhood(alert_id: Annotated[str, Query(alias="alertId")] = "") -> Any:
+    """
+    Purpose: the nodes and relationships around one alert, shaped for the
+             graph picture on the Knowledge graph screen.
+    Inputs:  alertId - the alert at the centre.
+    Output:  {centre, nodes: [{id, label, caption, properties}],
+             links: [{source, target, type}]}; 422 on a blank id, 404 when no
+             alert carries it, 503 with no Neo4j.
+    """
+    if not alert_id.strip():
+        raise ValidationError("an alertId is required", {"parameter": "alertId"})
+    if (down := _require_graph()) is not None:
+        return down
+    rows = run_query(_NEIGHBOURHOOD, alertId=alert_id)
+    if not rows:
+        raise NotFoundError(f"no alert {alert_id!r} in the graph", {"alertId": alert_id})
+    nodes: dict[str, dict[str, Any]] = {}
+    links = []
+    for row in rows:
+        for end in ("source", "target"):
+            label, properties = row[f"{end}Label"], _plain(row[f"{end}Props"])
+            nodes.setdefault(row[end], {
+                "id": row[end], "label": label,
+                "caption": _caption(label, properties), "properties": properties,
+            })
+        links.append({"source": row["source"], "target": row["target"], "type": row["type"]})
+    centre = next(n["id"] for n in nodes.values()
+                  if n["label"] == "Alert" and n["properties"].get("alertId") == alert_id)
+    return {"centre": centre, "nodes": list(nodes.values()), "links": links}
 
 
 @router.post("/load", summary="Reload the knowledge graph")

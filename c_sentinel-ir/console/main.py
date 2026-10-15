@@ -31,7 +31,7 @@ from common.logging import configure_logging
 
 from soc.alert_service.router import router as alert_router
 
-from console import actions, gateway_proxy, graph_api, soc_api, stack_status
+from console import actions, gateway_proxy, graph_api, platform_api, soc_api, stack_status
 
 _SERVICE_NAME = "console"
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -45,6 +45,7 @@ install_error_handlers(app)
 app.include_router(build_health_router(_SERVICE_NAME))
 app.include_router(stack_status.router)
 app.include_router(gateway_proxy.router)
+app.include_router(platform_api.router)
 app.include_router(alert_router)
 app.include_router(soc_api.router)
 app.include_router(graph_api.router)

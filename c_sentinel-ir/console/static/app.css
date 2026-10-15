@@ -50,6 +50,16 @@
   --sev-high-bg: #ffdbc8;     --sev-high-fg: #5c1a00;
   --sev-critical-bg: #ba1a1a; --sev-critical-fg: #ffffff;
 
+  /* Graph node colours, one per label, for the neighbourhood picture. */
+  --node-alert: #ba1a1a;
+  --node-threat: #b45f06;
+  --node-control: #1f6b3a;
+  --node-document: #6b5778;
+  --node-event: #3b5ba9;
+  --node-user: #8e4585;
+  --node-service: #00687a;
+  --node-other: #757780;
+
   --radius-xs: 4px;
   --radius-s: 8px;
   --radius-m: 12px;
@@ -99,6 +109,14 @@
     --sev-medium-bg: #5a4300;   --sev-medium-fg: #ffe08f;
     --sev-high-bg: #7e2c00;     --sev-high-fg: #ffdbc8;
     --sev-critical-bg: #ffb4ab; --sev-critical-fg: #690005;
+    --node-alert: #ffb4ab;
+    --node-threat: #ffb870;
+    --node-control: #8fd8a1;
+    --node-document: #d7bee4;
+    --node-event: #b1c5ff;
+    --node-user: #f5b0e7;
+    --node-service: #82d3e6;
+    --node-other: #8f909a;
     color-scheme: dark;
   }
 }
@@ -140,6 +158,14 @@
   --sev-medium-bg: #5a4300;   --sev-medium-fg: #ffe08f;
   --sev-high-bg: #7e2c00;     --sev-high-fg: #ffdbc8;
   --sev-critical-bg: #ffb4ab; --sev-critical-fg: #690005;
+  --node-alert: #ffb4ab;
+  --node-threat: #ffb870;
+  --node-control: #8fd8a1;
+  --node-document: #d7bee4;
+  --node-event: #b1c5ff;
+  --node-user: #f5b0e7;
+  --node-service: #82d3e6;
+  --node-other: #8f909a;
   color-scheme: dark;
 }
 
@@ -461,6 +487,34 @@ details.disclose summary { cursor: pointer; padding: 8px 0; color: var(--md-prim
 .bar-row { display: grid; grid-template-columns: minmax(110px, 180px) 1fr 40px; gap: 12px; align-items: center; padding: 4px 0; }
 .bar-track { height: 10px; border-radius: 5px; background: var(--md-surface-container-highest); overflow: hidden; }
 .bar-fill { height: 100%; border-radius: 5px; background: var(--md-primary); }
+
+/* ------------------------------------------------- graph neighbourhood -- */
+
+.graph-wrap { border-radius: var(--radius-m); background: var(--md-surface-container-lowest); border: 1px solid var(--md-outline-variant); overflow: hidden; }
+.graph-scroll { overflow-x: auto; }
+.graph-svg { display: block; width: 100%; min-width: 760px; height: auto; }
+.graph-svg .link { stroke: var(--md-outline); stroke-width: 1.4; }
+.graph-svg .link-label { fill: var(--md-on-surface-variant); font: 500 9.5px var(--font); letter-spacing: 0.03em; }
+.graph-svg .node circle { stroke: var(--md-surface-container-lowest); stroke-width: 3; cursor: pointer; }
+.graph-svg .node.selected circle { stroke: var(--md-on-surface); }
+.graph-svg .node text { fill: var(--md-on-surface); font: 500 11.5px var(--font); pointer-events: none; }
+.graph-svg .node .node-label { fill: var(--md-on-surface-variant); font-size: 9.5px; letter-spacing: 0.04em; text-transform: uppercase; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 10px 14px; border-top: 1px solid var(--md-outline-variant); }
+.legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--md-on-surface-variant); }
+.legend-swatch { width: 10px; height: 10px; border-radius: 50%; }
+
+/* ---------------------------------------------------------- demo guide -- */
+
+.demo-step { display: grid; grid-template-columns: 40px 1fr; gap: 4px 16px; padding: 16px; border-radius: var(--radius-m); background: var(--md-surface-container-low); }
+.demo-step.done { background: color-mix(in srgb, var(--md-success-container) 45%, var(--md-surface-container-low)); }
+.demo-check {
+  width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--md-outline); background: transparent;
+  display: grid; place-items: center; cursor: pointer; color: var(--md-on-success-container);
+}
+.demo-step.done .demo-check { background: var(--md-success); border-color: var(--md-success); color: var(--md-surface); }
+.demo-body { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.demo-body ul { margin: 0; padding-left: 18px; color: var(--md-on-surface-variant); }
+.demo-body li { margin: 2px 0; }
 
 /* -------------------------------------------------- overlays & feedback -- */
 

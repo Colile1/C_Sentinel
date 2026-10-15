@@ -15,9 +15,10 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from console import gateway_proxy, graph_api
+from console import gateway_proxy, graph_api, settings
 from console.actions import ACTIONS
 from console.main import app
+from console.platform_api import CONTROLLABLE
 
 #: A port nothing listens on, so a call to it fails fast.
 _CLOSED = "http://127.0.0.1:9"
@@ -72,6 +73,14 @@ def test_detection_round_trips_through_the_alert_api(client: TestClient) -> None
     assert len(client.get("/api/v1/alerts").json()) == first["alertsRaised"]
 
 
+def test_rules_stay_quiet_on_the_normal_workflow(client: TestClient) -> None:
+    """Phase 2 demo section 2: the ordinary-workflow capture raises nothing."""
+    result = client.post("/console/api/soc/detect", json={"source": "normal"}).json()
+    assert result["eventsEvaluated"] > 0
+    assert result["alertsRaised"] == 0
+    assert client.get("/api/v1/alerts").json() == []
+
+
 def test_gateway_down_is_a_502(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """An unreachable gateway answers in the services' error shape."""
     monkeypatch.setattr(gateway_proxy, "GATEWAY_URL", _CLOSED)
@@ -86,6 +95,7 @@ def test_graph_down_is_a_503(client: TestClient, monkeypatch: pytest.MonkeyPatch
     for response in (
         client.get("/console/api/graph/summary"),
         client.get("/console/api/graph/queries/users_high_severity"),
+        client.get("/console/api/graph/neighbourhood", params={"alertId": "alt-000000000001"}),
         client.post("/console/api/graph/rag/ask", json={"question": "Which users?"}),
     ):
         assert response.status_code == 503
@@ -93,9 +103,37 @@ def test_graph_down_is_a_503(client: TestClient, monkeypatch: pytest.MonkeyPatch
 
 
 def test_query_parameters_are_validated(client: TestClient) -> None:
-    """A query missing its parameter is a 422 before Neo4j is touched."""
-    response = client.get("/console/api/graph/queries/alerts_for_service")
-    assert response.status_code == 422
+    """A query or neighbourhood missing its parameter is a 422 before Neo4j
+    is touched."""
+    assert client.get("/console/api/graph/queries/alerts_for_service").status_code == 422
+    assert client.get("/console/api/graph/neighbourhood").status_code == 422
+
+
+def test_platform_only_controls_its_own_six_containers(client: TestClient) -> None:
+    """Stop and start are refused for anything outside the services and their
+    databases - the gateway, registry and graph stay up - and for any verb
+    other than stop and start."""
+    assert set(CONTROLLABLE) == {
+        "auth-service", "incident-service", "asset-service",
+        "auth-db", "incident-db", "asset-db",
+    }
+    for service, verb in (("kong", "stop"), ("consul", "stop"), ("neo4j", "start"),
+                          ("asset-service", "restart"), ("asset-service", "rm")):
+        assert client.post(f"/console/api/platform/containers/{service}/{verb}").status_code == 404
+
+
+def test_platform_dependencies_down_are_503s(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An unreachable Consul or gateway is a plain 503, and an unknown probe
+    is a 404 before anything is sent."""
+    monkeypatch.setattr(settings, "CONSUL_URL", _CLOSED)
+    monkeypatch.setattr(settings, "GATEWAY_URL", _CLOSED)
+    registry = client.get("/console/api/platform/registry")
+    assert registry.status_code == 503
+    assert registry.json()["error"] == "DEPENDENCY_UNAVAILABLE"
+    assert client.post("/console/api/platform/gateway-probe/no-token").status_code == 503
+    assert client.post("/console/api/platform/gateway-probe/flood").status_code == 404
 
 
 def test_dry_run_load_needs_no_graph(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:

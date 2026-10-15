@@ -39,6 +39,10 @@ PYTHON = sys.executable
 #: graph and RAG screens be demonstrated without Docker.
 CAPTURED_EVENTS = PROJECT_ROOT / "docs" / "evidence" / "step15-attack-events.jsonl"
 
+#: A committed capture of an ordinary business workflow - the rules should
+#: raise nothing on it.
+NORMAL_EVENTS = PROJECT_ROOT / "docs" / "evidence" / "step12-correlated-logs.jsonl"
+
 GATEWAY_URL = os.environ.get("GATEWAY_URL", "http://localhost:8000")
 CONSUL_URL = os.environ.get("CONSUL_URL", "http://localhost:8500")
 PROMETHEUS_URL = os.environ.get("PROMETHEUS_URL", "http://localhost:9090")

@@ -8,8 +8,9 @@ console.bat                      &rem or: python -m console.main  ->  http://127
 ```
 
 It owns no business logic. Business calls go through the Kong gateway; the SOC, graph and RAG
-screens call the existing packages in-process; the Operations screen runs the project's own
-scripts from a fixed catalogue. It binds to `127.0.0.1` only, and like the alert and graph
+screens call the existing packages in-process; the Platform screen reads Consul and drives
+`docker compose` for six named containers only; the Operations screen runs the project's own
+scripts from a fixed catalogue. The Demo guide walks both demo scripts from inside the console. It binds to `127.0.0.1` only, and like the alert and graph
 services it is not on the request path and does not register with Consul (D-30).
 
 | File | Responsibility |
@@ -18,8 +19,9 @@ services it is not on the request path and does not register with Consul (D-30).
 | `settings.py` | Addresses from the environment, `deploy/.env`, Docker Desktop on `PATH` |
 | `gateway_proxy.py` | Relays `/gateway/api/v1/*` to Kong unchanged |
 | `stack_status.py` | Health probes, the Neo4j Bolt check, tool links |
-| `soc_api.py` | Events, rule catalogue, detection runs, an alert's cited events |
-| `graph_api.py` | The five queries, graph counts and reload, GraphRAG |
+| `platform_api.py` | Consul registry, containers with stop/start for the services and their databases, per-database tables, gateway probes |
+| `soc_api.py` | Events over three sources, rule catalogue, detection runs, an alert's cited events |
+| `graph_api.py` | The five queries, graph counts and reload, an alert's neighbourhood, GraphRAG |
 | `actions.py` | The runnable script catalogue |
 | `static/` | The plain Material Design UI (HTML, CSS and JS, no build step) |
 | `tests/` | The HTTP contract, with no containers running |

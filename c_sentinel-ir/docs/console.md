@@ -2,9 +2,12 @@
 
 The console is one browser interface over the whole of Sentinel-IR. Every Phase 1 business
 operation and every Phase 2 security stage can be driven from it: incidents, assets and users;
-the security event stream; detection and alert triage; the Neo4j knowledge graph and its five
-queries; GraphRAG answers with their evidence; the project's own demo and evidence scripts; and a
-trace of every gateway call with its correlation ID.
+the platform underneath them (gateway enforcement, the Consul registry, the containers, one
+database per service); the security event stream; detection and alert triage; the Neo4j
+knowledge graph, an alert's neighbourhood drawn as a picture, and the five queries; GraphRAG
+answers with their evidence; the project's own demo and evidence scripts; and a trace of every
+gateway call with its correlation ID. A Demo guide turns both demo scripts into checklists, so
+each demonstration video can be recorded from this one window.
 
 It adds no new business logic. Each screen calls code the project already has (the gateway, the
 SOC modules, the graph loader, the retriever) the same way that code's own CLI or client calls it.
@@ -29,8 +32,8 @@ is running:
 
 | Running | What works |
 |---------|-----------|
-| The console only | Security events, detection and alert triage, the rule catalogue and a dry-run graph load, all against the committed attack capture `docs/evidence/step15-attack-events.jsonl`; the offline Operations actions |
-| Plus the stack (`start.bat`) | All of the above, plus Incidents, Assets, Users, the live event source, the knowledge graph, GraphRAG, and every Operations action |
+| The console only | The Demo guide; security events, detection and alert triage, the rule catalogue and a dry-run graph load, all against the committed captures (`docs/evidence/step15-attack-events.jsonl` and the normal workflow `step12-correlated-logs.jsonl`); the offline Operations actions |
+| Plus the stack (`start.bat`) | All of the above, plus Incidents, Assets, Users, Platform, the live event source, the knowledge graph, GraphRAG, and every Operations action |
 
 Sign in with the bootstrap admin from `deploy/.env` (`BOOTSTRAP_ADMIN_USERNAME`, normally `admin`,
 and `BOOTSTRAP_ADMIN_PASSWORD`). The token is kept in the tab's `sessionStorage` and is gone when
@@ -46,6 +49,8 @@ the tab closes.
     ├── gateway_proxy  /gateway/api/v1/*  ──HTTP──▶  Kong :8000 ──▶ auth / incident / asset services
     ├── stack_status   /console/api/status ──HTTP──▶  each service /health, Consul, Prometheus,
     │                                                  Grafana, Neo4j
+    ├── platform_api   /console/api/platform/* ──HTTP──▶ Consul, Kong (probes)
+    │                                          ──subprocess──▶ docker compose ps / stop / start / exec psql
     ├── soc_api        /console/api/soc/*   ──in-process──▶ soc.collector, soc.rules, AlertStore
     ├── alert router   /api/v1/alerts       (soc.alert_service.router, mounted unchanged)
     ├── graph_api      /console/api/graph/* ──in-process──▶ kg.cypher, kg.loader, rag ──Bolt──▶ Neo4j
@@ -58,8 +63,9 @@ the tab closes.
 | `console/settings.py` | Every address the console talks to, read from the environment with the stack's host ports as defaults; loads `deploy/.env`; puts Docker Desktop's CLI on `PATH` the way `start.bat` does |
 | `console/gateway_proxy.py` | Relays the browser's business calls to Kong unchanged, returning status, body, `X-Correlation-ID` and the rate-limit headers |
 | `console/stack_status.py` | Parallel health probes for the Overview screen; the Neo4j Bolt check every graph call makes first; the tool links |
-| `console/soc_api.py` | Event explorer with facets, rule catalogue, detection runs, and resolving an alert's `relatedEvents` back to full events |
-| `console/graph_api.py` | The five queries with their Cypher, node counts per label, graph reload, the graph's alert ids, and GraphRAG questions |
+| `console/platform_api.py` | Consul's registered instances and checks; the containers with their images; stop and start for the three services and their three databases only; each database's tables with exact row counts; the three gateway probes |
+| `console/soc_api.py` | Event explorer with facets over three sources, rule catalogue, detection runs, and resolving an alert's `relatedEvents` back to full events |
+| `console/graph_api.py` | The five queries with their Cypher, node counts per label, an alert's neighbourhood for drawing, graph reload, the graph's alert ids, and GraphRAG questions |
 | `console/actions.py` | The fixed catalogue of runnable scripts and the runner |
 | `console/static/` | The single-page UI: plain HTML, CSS and JavaScript, no framework and no build step |
 | `console/tests/test_console.py` | The console's HTTP contract, with no containers running |
@@ -70,18 +76,23 @@ the tab closes.
 | Screen | What you can do | Project code it reaches |
 |--------|-----------------|-------------------------|
 | **Overview** | Health of all eight components; open incidents, assets, open alerts and captured events; the security workflow; links to Grafana, Prometheus, Consul, Neo4j Browser and each service's OpenAPI page | Each component's health endpoint; the gateway |
+| **Demo guide** | Both demo scripts as checklists: what to show at each step, buttons that jump to the screen that shows it, the files to have open in an editor, and the terminal command the script uses. Ticks are remembered in the browser | `docs/report/demo-script.md`, `docs/report/phase2-demo-script.md` |
 | **Incidents** | List, filter by status and severity, and search. Raise an incident against an asset, edit it, move its status, change its severity, and delete it (admin) | `incident-service` through Kong, which calls `asset-service` through `ResilientClient` |
 | **Assets** | List, filter by type, and search. Open an asset to see the incidents raised against it. Register, edit and remove assets (admin) | `asset-service` through Kong. Opening a CRITICAL asset emits `ASSET_ACCESSED` |
 | **Users** | List accounts and create users (admin) | `auth-service` through Kong |
-| **Security events** | Browse the event stream from the captured attack or the live stack logs. Filter by type, service, user and correlation ID. Click a correlation ID to see every event in that request | `soc.collector` (`build_store`, `select_source`) |
-| **Detection & alerts** | Run all rules; read the rule catalogue; move each alert from OPEN to ACKNOWLEDGED to CLOSED; see the events behind an alert; jump to GraphRAG about it | `soc.rules.catalogue`, `soc.rules.main.persist_alerts`, `soc.alert_service.router` |
-| **Knowledge graph** | Node and relationship counts; reload the graph (dry run optional); run q1 to q5 with parameter pickers and see each query's Cypher | `kg.loader.main`, `kg.cypher.queries`, `kg.loader.connection.run_query` |
-| **Ask GraphRAG** | Ask a question, or pick a suggestion built from real graph ids; optional LLM phrasing; see the answer with all four evidence parts, the Cypher and the CLI rendering | `rag.generation.main.answer_question` |
+| **Platform** | Send the three gateway probes (no token: 401 from Kong; wrong password: 401 from auth-service; a 65-request burst whose tail turns 429). See every Consul-registered instance with its address and health checks. See every container with its state, image and published ports, and stop or start a service or its database. See each service's database and the only table in it | Consul's HTTP API; Kong; `docker compose` |
+| **Security events** | Browse the event stream from the captured attack, the normal workflow, or the live stack logs. Filter by type, service, user and correlation ID. Click a correlation ID to see every event in that request | `soc.collector` (`build_store`, `select_source`) |
+| **Detection & alerts** | Run all rules over any of the three sources (the normal workflow raises none); read the rule catalogue; move each alert from OPEN to ACKNOWLEDGED to CLOSED; see the events behind an alert; jump to GraphRAG about it | `soc.rules.catalogue`, `soc.rules.main.persist_alerts`, `soc.alert_service.router` |
+| **Knowledge graph** | Node and relationship counts; reload the graph (dry run optional); draw any alert's neighbourhood (user, events, alert, technique, then its controls, runbooks, vulnerabilities, target service and sub-techniques) and click a node for its properties; run q1 to q5 with parameter pickers and see each query's Cypher | `kg.loader.main`, `kg.cypher.queries`, `kg.loader.connection.run_query` |
+| **Ask GraphRAG** | Ask a question, or pick a suggestion built from real graph ids; try the two refusals; optional LLM phrasing; see the answer with all four evidence parts, the Cypher and the CLI rendering | `rag.generation.main.answer_question` |
 | **Operations** | Run the project's scripts and read their output: verify, seed, business workflow, failed-login burst, circuit-breaker drill, evidence captures, the Phase 2 workflow, and the unit tests suite by suite | `scripts/`, `client/`, `pytest` |
 | **Request trace** | Every gateway call this session made, with status, latency, remaining rate limit and correlation ID. Copy the ID, or look it up in the live events | The headers `gw()` records |
 
+![Demo guide](evidence/console/09-demo-guide.png)
+![Platform](evidence/console/10-platform.png)
 ![Incident detail](evidence/console/02-incident-sheet.png)
 ![Detection and alerts](evidence/console/04-detection-alerts.png)
+![Alert neighbourhood](evidence/console/11-alert-neighbourhood.png)
 ![Ask GraphRAG](evidence/console/06-ask-graphrag.png)
 
 ## Design decisions
@@ -103,10 +114,24 @@ the alert service's own, already-tested endpoints, not by a second copy of them.
 evaluating the same events twice would hold every alert twice. `AlertStore` gained `clear()` for
 this, with its own test; the console clears the store before persisting a new evaluation.
 
-**Two event sources, chosen per screen.** "Captured attack" is the committed capture and needs no
-Docker. "Live stack logs" is `docker compose logs`. Both resolve through
-`soc.collector.main.select_source`, the function the CLIs use, so the console cannot read events
-differently from them.
+**Three event sources, chosen per screen.** "Captured attack" is the committed attack capture and
+needs no Docker. "Normal workflow" is the committed capture of an ordinary business workflow,
+which shows the rules staying quiet (0 alerts). "Live stack logs" is `docker compose logs`. All
+three resolve through `soc.collector.main.select_source`, the function the CLIs use, so the
+console cannot read events differently from them.
+
+**The Platform screen can only stop what is safe to stop.** Stop and start are limited to the three
+services and their three databases, which are the containers the registry, Database per Service
+and circuit-breaker demonstrations need. The gateway, Consul, Prometheus, Grafana and Neo4j are
+refused with a 404, because stopping any of them would take the console's own view down with it.
+Docker is driven with the same `docker compose --env-file deploy/.env -f deploy/docker-compose.yml`
+command `start.bat` uses. Row counts are exact `count(*)` values, not `pg_stat` estimates, because
+the estimates read 0 after every database restart.
+
+**The neighbourhood is drawn as a chain, not a force layout.** Columns run user, events, alert,
+technique, then everything the technique links to. That is the path the GraphRAG answer walks, so
+the picture and the answer tell the same story. The layout is deterministic, so the same graph
+always draws the same picture, which matters on a recording.
 
 **A missing graph fails fast.** Every graph call first checks that Neo4j's Bolt port accepts a
 connection and returns a plain 503 within a second if not, instead of waiting out the driver's
@@ -158,17 +183,44 @@ message.
 8. **Tests and documentation.** Added `console/tests/test_console.py`, the `AlertStore.clear`
    test, `console` in `pytest.ini`, `console.bat`, and this document.
 
+### Second round: covering the rest of both demo scripts
+
+9. **Gap check.** Walked both demo scripts section by section and listed what still needed a
+   terminal: the gateway probes, the registry, the containers, Database per Service, the rules
+   staying quiet on normal traffic, the graph picture, and the refusals.
+10. **Backend.** Added `platform_api.py`, the normal-workflow event source, and the
+    neighbourhood endpoint. Checked each against the live stack: 3 services registered with
+    passing checks, 11 containers healthy, each database holding only its own table, 0 alerts on
+    the normal workflow, and a 21-node neighbourhood for the brute-force alert.
+11. **Frontend.** Added the Platform and Demo guide screens, the third source option, the
+    neighbourhood picture with its property panel, and the refusal questions.
+12. **Live drills.** Ran each new action on the stack:
+    - The burst returned 60 × 401, then 5 × 429 "API rate limit exceeded".
+    - Stopping `asset-service` turned its Consul check critical; 6 seconds after the restart both
+      checks were passing.
+13. **Fixes found by the drills.**
+    - Built images showed as bare `sha256` ids, so names now come from `compose config`.
+    - Row counts read 0 after a restart, so they are now exact counts.
+    - The first, radial neighbourhood layout overlapped its labels and was replaced by the
+      layered chain. Sub-techniques were moved out of the technique column.
+    - On a phone the picture shrank past legibility, so it now keeps a minimum width and scrolls.
+
 ## Verification
 
 ```bash
-python -m pytest console       # 10 passed, no containers needed
+python -m pytest console       # 13 passed, no containers needed
 python -m pytest soc           # 95 passed, including AlertStore.clear
 ```
 
-On the running stack, the Operations screen's *Verify the stack* returned "Preflight: all green",
-and the live event source read the stack's events, including the `INCIDENT_CREATED` and
-`INCIDENT_ESCALATED` emitted by the console's own test incident. The screenshots in
-`evidence/console/` were taken from the console against the live stack.
+On the running stack:
+- The Operations screen's *Verify the stack* returned "Preflight: all green".
+- The live event source read the stack's events, including the `INCIDENT_CREATED` and
+  `INCIDENT_ESCALATED` emitted by the console's own test incident.
+- The Platform drills behaved as the Phase 1 demo script describes.
+
+Every screen was toured in headless Chrome at desktop width, and at phone width in dark mode,
+with no JS errors and no sideways page scroll. The screenshots in `evidence/console/` were taken
+from the console against the live stack.
 
 ## Known limits
 
@@ -182,6 +234,10 @@ and the live event source read the stack's events, including the `INCIDENT_CREAT
   the system font and icons show as their names.
 - An Operations action runs to completion before its output appears, up to 300 seconds. The
   circuit-breaker drill asks for confirmation because it stops `asset-service`.
+- The rate-limit burst uses the minute's allowance, so the console's own gateway calls are refused
+  with 429 for up to a minute afterwards. Run it last in a demonstration.
+- The Platform screen and the live event source need Docker Desktop running; the console finds its
+  CLI even when it is not on `PATH`.
 - *Phrase with LLM* needs `GEMINI_API_KEY`. Without it the template generator answers, as it does
   on the CLI.
 

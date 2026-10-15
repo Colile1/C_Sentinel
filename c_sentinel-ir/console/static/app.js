@@ -777,12 +777,256 @@ async function renderUsers(el) {
   load();
 }
 
+/* ---------- Demo guide ---------- */
+
+/**
+ * The two demo scripts (docs/report/demo-script.md and phase2-demo-script.md)
+ * as checklists. Each step says what to show, jumps to the console screen
+ * that shows it, names the files to have open, and keeps the terminal command
+ * the script uses for anyone following along without the console.
+ */
+const DEMO_GUIDES = {
+  phase1: {
+    title: 'Phase 1 · the microservices platform',
+    script: 'docs/report/demo-script.md',
+    steps: [
+      { title: 'Before recording', points: ['Run start.bat and wait for "all green", then console.bat.', 'Camera on for identification.', 'Sign in as the bootstrap admin.', 'Aim for 8 to 10 minutes.'],
+        go: [['overview', 'Overview']], files: [], cmd: 'start.bat && console.bat' },
+      { title: '1. One complete business workflow', points: ['Raise an incident against core-auth-db: the asset name is fetched from asset-service and snapshotted onto the incident.', 'Open it and escalate its severity to HIGH (emits INCIDENT_ESCALATED).', 'Or run the scripted five-step workflow from Operations.'],
+        go: [['incidents', 'Incidents'], ['operations', 'Operations']], files: ['client/demo_workflow.py'], cmd: 'python client/demo_workflow.py' },
+      { title: '2. The gateway routing and enforcing', points: ['Show the auth-login / auth-protected route split in kong.yml: login is public, everything else needs a JWT.', 'Send the three probes: no token (401 from Kong), wrong password (401 from auth-service), the burst (tail turns 429).', 'Request trace shows every call\'s correlation ID and the RateLimit headers.'],
+        go: [['platform', 'Platform'], ['activity', 'Request trace']], files: ['gateway/kong.yml'], cmd: 'curl -i http://localhost:8000/api/v1/incidents' },
+      { title: '3. The service registry', points: ['All three services registered with real addresses and passing checks.', 'Stop asset-service in Containers, refresh the registry: its check fails. Start it again.'],
+        go: [['platform', 'Platform']], files: ['registry/README.md'], cmd: 'docker compose -f deploy/docker-compose.yml stop asset-service' },
+      { title: '4. Every service in its own container', points: ['Containers lists one container and one image per service, each with its own state and health.'],
+        go: [['platform', 'Platform']], files: ['deploy/docker-compose.yml'], cmd: 'docker compose -f deploy/docker-compose.yml ps' },
+      { title: '5. The two patterns, in code and firing', points: ['Database per Service: each database holds only its own table. Stop asset-db and show Incidents still listing.', 'Circuit Breaker with Retry: show http_client.py, then run the circuit-breaker drill from Operations: slow retries, degraded incidents instead of 500s, near-instant once open, CIRCUIT_CLOSED after restart.'],
+        go: [['platform', 'Platform'], ['incidents', 'Incidents'], ['operations', 'Operations']], files: ['docs/patterns.md', 'libs/common/http_client.py'], cmd: 'python scripts/break_asset_service.py' },
+      { title: '6. Security event collection', points: ['Live stack logs: every request, auth decision and inter-service call emits one event in the soc-events.md schema.', 'Click a correlation ID to follow one workflow across all three services.', 'Grafana shows the request and authentication-failure dashboard filling.'],
+        go: [['events', 'Security events', { source: 'live' }], ['overview', 'Overview (Grafana link)']], files: ['docs/soc-events.md'], cmd: 'docker compose -f deploy/docker-compose.yml logs | grep <correlation id>' },
+    ],
+  },
+  phase2: {
+    title: 'Phase 2 · SOC, knowledge graph and GraphRAG',
+    script: 'docs/report/phase2-demo-script.md',
+    steps: [
+      { title: 'Before recording', points: ['start.bat loads the graph from the committed attack capture.', 'Have the Neo4j Browser ready (user neo4j, password from deploy/.env).'],
+        go: [['overview', 'Overview'], ['graph', 'Knowledge graph']], files: ['kg/model/graph_model.md'], cmd: 'python -m kg.loader.main --file docs/evidence/step15-attack-events.jsonl' },
+      { title: '1. Collect security events', points: ['The collector reads every service and the gateway on one schema, with no translation.', 'Type and service counts; follow one workflow by its correlation ID.'],
+        go: [['events', 'Security events', { source: 'capture' }]], files: ['docs/soc-events.md'], cmd: 'python -m soc.collector.main' },
+      { title: '2. Detection rules and alerts', points: ['The rule catalogue is read from the rule classes, so documentation cannot drift.', 'Run on Captured attack: alerts from all four rules. Multiple Failed Logins fires twice on purpose, keyed by user and by source IP.', 'Run on Normal workflow: 0 alerts. The rules stay quiet on ordinary traffic.', 'Acknowledge an alert and open its evidence.'],
+        go: [['alerts', 'Detection & alerts']], files: ['soc/rules/rule_failed_logins.py'], cmd: 'python -m soc.rules.main --catalogue' },
+      { title: '3. The complete workflow in one pass', points: ['Events, detection, the graph load and the RAG answer, from one command.'],
+        go: [['operations', 'Operations']], files: ['scripts/run_security_workflow.py'], cmd: 'python scripts/run_security_workflow.py --skip-capture' },
+      { title: '4. Explore the graph and the five queries', points: ['Alert neighbourhood: the Multiple Failed Logins alert, T1110 Brute Force, its controls and runbooks, and the user behind the events.', 'Run q1 to q5 and show each query\'s Cypher.'],
+        go: [['graph', 'Knowledge graph']], files: ['kg/cypher/q4_controls_for_alert.cypher'], cmd: 'MATCH (a:Alert)-[:INDICATES]->(t:Threat)<-[:MITIGATES]-(c:Control) RETURN a, t, c' },
+      { title: '5. Ask your own questions', points: ['The demo question: rule, ATT&CK technique, controls, runbooks, with all four evidence parts.', 'The other shapes: alerts for a service, threats, users, dependency impact.', 'The two refusals: a question it does not understand, and an alert the graph does not hold.'],
+        go: [['ask', 'Ask GraphRAG']], files: ['rag/generation/templates.py'], cmd: 'python -m rag.generation.main --demo' },
+    ],
+  },
+};
+
+function renderDemo(el) {
+  const saved = storage.get('localStorage', 'sentinel.demo') || {};
+  const view = { phase: saved.phase || 'phase1', done: saved.done || {} };
+  const persist = () => storage.set('localStorage', 'sentinel.demo', view);
+
+  function draw() {
+    const guide = DEMO_GUIDES[view.phase];
+    const doneCount = guide.steps.filter((_, i) => view.done[`${view.phase}-${i}`]).length;
+    el.innerHTML = `
+      <p class="page-intro">Both demo scripts as checklists you can record from. Each step says what to show, jumps to the console screen that shows it, names the files to have open in your editor, and keeps the terminal command the script uses. Ticks are remembered in this browser.</p>
+      <div class="section-head" style="margin-top:0">
+        <div class="segmented" id="demo-phase">
+          <button data-phase="phase1" class="${view.phase === 'phase1' ? 'selected' : ''}">${icon('lan', 'icon-sm')}Phase 1</button>
+          <button data-phase="phase2" class="${view.phase === 'phase2' ? 'selected' : ''}">${icon('security', 'icon-sm')}Phase 2</button>
+        </div>
+        <div class="row"><span class="tag ${doneCount === guide.steps.length ? 'ok' : 'info'}">${doneCount} of ${guide.steps.length} done</span>
+          <button class="btn btn-text" id="demo-reset">${icon('restart_alt')}Reset</button></div>
+      </div>
+      <div class="progress-bar bar-track" style="margin-bottom:20px"><div class="bar-fill" style="width:${(doneCount / guide.steps.length) * 100}%"></div></div>
+      <div class="stack">${guide.steps.map((step, i) => {
+        const key = `${view.phase}-${i}`;
+        return `<div class="demo-step${view.done[key] ? ' done' : ''}">
+          <button class="demo-check" data-step="${key}" aria-label="Mark ${esc(step.title)} done" aria-pressed="${view.done[key] ? 'true' : 'false'}">${view.done[key] ? icon('check') : ''}</button>
+          <div class="demo-body">
+            <div class="title-medium">${esc(step.title)}</div>
+            <ul>${step.points.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>
+            <div class="row">${step.go.map(([, label], g) => `<button class="btn btn-tonal" data-go="${i}-${g}">${icon('arrow_forward')}${esc(label)}</button>`).join('')}
+              ${step.files.map((f) => `<span class="tag mono" title="Have this open in your editor">${icon('description', 'icon-sm')}${esc(f)}</span>`).join('')}</div>
+            <details class="disclose"><summary>Terminal equivalent</summary><pre class="code">${esc(step.cmd)}</pre></details>
+          </div>
+        </div>`;
+      }).join('')}</div>
+      <p class="body-small muted" style="margin-top:16px">Source: <span class="mono">${esc(guide.script)}</span></p>`;
+
+    $$('#demo-phase button', el).forEach((b) => { b.onclick = () => { view.phase = b.dataset.phase; persist(); draw(); }; });
+    $('#demo-reset', el).onclick = () => {
+      Object.keys(view.done).filter((k) => k.startsWith(view.phase)).forEach((k) => delete view.done[k]);
+      persist(); draw();
+    };
+    $$('[data-step]', el).forEach((b) => {
+      b.onclick = () => { view.done[b.dataset.step] = !view.done[b.dataset.step]; persist(); draw(); };
+    });
+    $$('[data-go]', el).forEach((b) => {
+      b.onclick = () => {
+        const [i, g] = b.dataset.go.split('-').map(Number);
+        const [route, , preset] = guide.steps[i].go[g];
+        if (route === 'events' && preset) state.eventFilter = preset;
+        location.hash = `#/${route}`;
+      };
+    });
+  }
+  draw();
+}
+
+/* ---------- Platform ---------- */
+
+async function renderPlatform(el) {
+  el.innerHTML = `
+    <p class="page-intro">The microservices platform underneath the business screens: the Kong gateway enforcing authentication and rate limits, the Consul registry, one container per service, and one database per service. Every check here is one section of the Phase 1 demo script.</p>
+
+    <div class="section" style="margin-top:0">
+      <div class="section-head"><h2 class="title-large">Gateway enforcement</h2></div>
+      <div class="grid grid-3">
+        ${[
+          ['no-token', 'lock', 'Call without a token', 'GET /incidents with no Authorization header. Kong refuses it with 401 before any service is reached.'],
+          ['bad-login', 'password', 'Log in with a wrong password', 'The login route is the one route with no JWT check, so this 401 comes from auth-service and emits AUTH_FAILED.'],
+          ['burst', 'speed', 'Burst past the rate limit', '65 concurrent wrong logins. The limit is 60 a minute, so the tail turns 429. The console\'s own gateway calls are refused for up to a minute afterwards.'],
+        ].map(([kind, glyph, title, text]) => `
+          <div class="card outlined stack">
+            <div class="card-head" style="margin:0">${icon(glyph)}<div class="title-medium">${title}</div></div>
+            <div class="body-small muted">${text}</div>
+            <div><button class="btn btn-tonal" data-probe="${kind}">${icon('play_arrow')}Send</button></div>
+            <div data-probe-out="${kind}"></div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><h2 class="title-large">Service registry</h2>
+        <div class="row"><button class="btn btn-text" id="pf-reg-refresh">${icon('refresh')}Refresh</button>
+          <a class="btn btn-text" href="${esc(state.config ? state.config.tools.find((t) => t.name === 'Consul registry').url : '#')}" target="_blank" rel="noopener">${icon('open_in_new')}Consul UI</a></div></div>
+      <div id="pf-registry"><div class="progress"></div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><h2 class="title-large">Containers</h2>
+        <button class="btn btn-text" id="pf-ct-refresh">${icon('refresh')}Refresh</button></div>
+      <p class="page-intro" style="margin-bottom:12px">One container, one image and one lifecycle per service. Stopping a service shows it leave the Consul healthy list; stopping a database shows the other services keep serving (Database per Service); stopping asset-service is the circuit breaker's trigger.</p>
+      <div id="pf-containers"><div class="progress"></div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><h2 class="title-large">Database per Service</h2>
+        <button class="btn btn-text" id="pf-db-refresh">${icon('refresh')}Refresh</button></div>
+      <div class="grid grid-3" id="pf-databases"><div class="progress"></div></div>
+    </div>`;
+
+  $$('[data-probe]', el).forEach((button) => {
+    button.onclick = async () => {
+      const kind = button.dataset.probe;
+      const out = $(`[data-probe-out="${kind}"]`, el);
+      button.disabled = true;
+      out.innerHTML = '<div class="row"><span class="spinner"></span>Sending…</div>';
+      const r = await api(`/console/api/platform/gateway-probe/${kind}`, { method: 'POST' });
+      button.disabled = false;
+      if (!r.ok) { out.innerHTML = errorBanner(errorText(r)); return; }
+      const d = r.data;
+      const codeTag = (code) => `<span class="tag ${code >= 500 ? 'bad' : code === 429 ? 'warn' : code >= 400 ? 'info' : 'ok'}">${code}</span>`;
+      out.innerHTML = kind === 'burst'
+        ? `<div class="stack"><div class="row">${Object.entries(d.counts).map(([code, n]) => `${codeTag(Number(code))}<span class="body-small">× ${n}</span>`).join('')}<span class="body-small muted">in ${d.seconds}s</span></div>
+            ${d.sample429 ? `<div class="body-small">A refused response: ${codeTag(429)} <span class="mono">${esc(JSON.stringify(d.sample429.body))}</span></div>` : '<div class="body-small muted">No request was refused. The window may already have been partly used; try again in a minute.</div>'}</div>`
+        : `<div class="stack">${kv([['Status', codeTag(d.status)], ['Body', `<span class="mono">${esc(JSON.stringify(d.body))}</span>`], ['Correlation ID', `<span class="mono">${esc(d.correlationId || '-')}</span>`]])}</div>`;
+    };
+  });
+
+  async function loadRegistry() {
+    const box = $('#pf-registry');
+    const r = await api('/console/api/platform/registry');
+    if (!box.isConnected) return;
+    if (!r.ok) { box.innerHTML = errorBanner(errorText(r), 'pf-reg-retry'); $('#pf-reg-retry').onclick = loadRegistry; return; }
+    box.innerHTML = r.data.services.length ? `<div class="table-wrap"><table class="data">
+      <thead><tr><th>Service</th><th>Instance</th><th>Address</th><th>Health checks</th></tr></thead>
+      <tbody>${r.data.services.flatMap((s) => (s.instances.length ? s.instances : [null]).map((i) => `<tr>
+        <td class="cell-title">${esc(s.name)}</td>
+        ${i ? `<td class="mono">${esc(i.id)}</td><td class="mono">${esc(i.address)}:${i.port}</td>
+          <td>${i.checks.map((c) => `<div class="row" style="gap:6px;margin-bottom:4px"><span class="tag ${c.status === 'passing' ? 'ok' : c.status === 'warning' ? 'warn' : 'bad'}">${esc(c.status)}</span><span class="body-small">${esc(c.name)}</span></div>`).join('')}</td>`
+          : '<td colspan="3" class="muted">No registered instance</td>'}
+      </tr>`)).join('')}</tbody></table></div>`
+      : emptyState('hub', 'Nothing is registered', 'Each service registers itself with Consul at start-up.');
+  }
+
+  async function loadContainers() {
+    const box = $('#pf-containers');
+    const r = await api('/console/api/platform/containers');
+    if (!box.isConnected) return;
+    if (!r.ok) { box.innerHTML = errorBanner(errorText(r), 'pf-ct-retry'); $('#pf-ct-retry').onclick = loadContainers; return; }
+    const stateTag = (c) => `<span class="tag ${c.state === 'running' ? (c.health && c.health !== 'healthy' ? 'warn' : 'ok') : 'bad'}">${esc(c.state)}${c.health ? ` · ${esc(c.health)}` : ''}</span>`;
+    box.innerHTML = `<div class="table-wrap"><table class="data">
+      <thead><tr><th>Service</th><th>State</th><th>Image</th><th>Published ports</th><th></th></tr></thead>
+      <tbody>${r.data.containers.map((c) => `<tr>
+        <td><div class="cell-title">${esc(c.service)}</div><div class="cell-sub mono">${esc(c.name)}</div></td>
+        <td>${stateTag(c)}<div class="cell-sub">${esc(c.status)}</div></td>
+        <td class="mono">${esc(c.image)}<div class="cell-sub">${esc(c.imageId)}</div></td>
+        <td class="mono body-small">${c.ports.map(esc).join('<br>') || '<span class="muted">internal only</span>'}</td>
+        <td class="nowrap">${r.data.controllable.includes(c.service)
+          ? (c.state === 'running'
+            ? `<button class="btn btn-danger-text" data-ct="${esc(c.service)}" data-verb="stop">${icon('stop_circle')}Stop</button>`
+            : `<button class="btn btn-tonal" data-ct="${esc(c.service)}" data-verb="start">${icon('play_circle')}Start</button>`)
+          : ''}</td>
+      </tr>`).join('')}</tbody></table></div>`;
+    $$('[data-ct]', box).forEach((b) => {
+      b.onclick = async () => {
+        const { ct, verb } = b.dataset;
+        if (verb === 'stop' && !(await confirmDialog({ title: `Stop ${ct}?`, message: `Runs <span class="mono">docker compose stop ${esc(ct)}</span>. Start it again from this table when you are done.`, confirmLabel: 'Stop', danger: true }))) return;
+        b.disabled = true;
+        b.innerHTML = `<span class="spinner"></span>${verb === 'stop' ? 'Stopping' : 'Starting'}…`;
+        const res = await api(`/console/api/platform/containers/${ct}/${verb}`, { method: 'POST' });
+        if (!res.ok) { snackbar(errorText(res)); loadContainers(); return; }
+        snackbar(`${ct} ${verb === 'stop' ? 'stopped' : 'started'} in ${res.data.seconds}s.`);
+        loadContainers(); loadRegistry(); loadDatabases(); refreshStatus();
+      };
+    });
+  }
+
+  async function loadDatabases() {
+    const box = $('#pf-databases');
+    const r = await api('/console/api/platform/databases');
+    if (!box.isConnected) return;
+    if (!r.ok) { box.innerHTML = errorBanner(errorText(r)); return; }
+    box.innerHTML = r.data.map((d) => `
+      <div class="card outlined stack">
+        <div class="card-head" style="margin:0">${icon('database')}<div><div class="title-medium">${esc(d.database)}</div><div class="body-small muted">owned by ${esc(d.service)} · role <span class="mono">${esc(d.role)}</span></div></div></div>
+        ${d.error ? errorBanner(d.error)
+          : d.tables.map((t) => `<div class="row spread"><span class="mono">${esc(t.table)}</span><span class="body-small muted">${t.rows} rows</span></div>`).join('') || '<div class="muted">No tables yet.</div>'}
+      </div>`).join('')
+      + `<div class="banner info" style="grid-column:1/-1;margin:0">${icon('info')}<div class="grow">Each service holds only its own table, so no cross-service read is possible: incident-service gets an asset's name by calling asset-service through the circuit breaker, never by reading asset_db.</div></div>`;
+  }
+
+  $('#pf-reg-refresh').onclick = loadRegistry;
+  $('#pf-ct-refresh').onclick = loadContainers;
+  $('#pf-db-refresh').onclick = loadDatabases;
+  loadRegistry();
+  loadContainers();
+  loadDatabases();
+}
+
 /* ---------- Security events ---------- */
 
-function sourceToggle(id, value) {
+/**
+ * The event-source picker. `withNormal` adds the committed capture of an
+ * ordinary workflow, which the rules should raise nothing on; the graph
+ * loader does not take it, so its picker leaves it out.
+ */
+function sourceToggle(id, value, withNormal = false) {
+  const sources = [
+    ['capture', 'inventory_2', 'Captured attack'],
+    ...(withNormal ? [['normal', 'verified_user', 'Normal workflow']] : []),
+    ['live', 'sensors', 'Live stack logs'],
+  ];
   return `<div class="segmented" id="${id}" role="group" aria-label="Event source">
-    <button data-src="capture" class="${value === 'capture' ? 'selected' : ''}">${icon('inventory_2', 'icon-sm')}Captured attack</button>
-    <button data-src="live" class="${value === 'live' ? 'selected' : ''}">${icon('sensors', 'icon-sm')}Live stack logs</button>
+    ${sources.map(([key, glyph, label]) => `<button data-src="${key}" class="${value === key ? 'selected' : ''}">${icon(glyph, 'icon-sm')}${label}</button>`).join('')}
   </div>`;
 }
 
@@ -790,9 +1034,9 @@ async function renderEvents(el) {
   const filter = { source: 'capture', eventType: '', service: '', user: '', correlationId: '', ...state.eventFilter };
   state.eventFilter = {};
   el.innerHTML = `
-    <p class="page-intro">The security event stream the SOC collector reads: one structured event per request, auth decision and inter-service call, in the schema Phase 2 consumes. <b>Captured attack</b> is the committed file <span class="mono">docs/evidence/step15-attack-events.jsonl</span> and needs no Docker. <b>Live stack logs</b> reads <span class="mono">docker compose logs</span>.</p>
+    <p class="page-intro">The security event stream the SOC collector reads: one structured event per request, auth decision and inter-service call, in the schema Phase 2 consumes. <b>Captured attack</b> is the committed file <span class="mono">docs/evidence/step15-attack-events.jsonl</span> and needs no Docker. <b>Normal workflow</b> is <span class="mono">step12-correlated-logs.jsonl</span>, an ordinary business workflow the rules should stay quiet on. <b>Live stack logs</b> reads <span class="mono">docker compose logs</span>.</p>
     <div class="section-head">
-      ${sourceToggle('ev-src', filter.source)}
+      ${sourceToggle('ev-src', filter.source, true)}
       <div class="row">
         <label class="search" style="max-width:260px">${icon('person')}<input id="ev-user" placeholder="User" value="${esc(filter.user)}" aria-label="Filter by user"></label>
         <label class="search" style="max-width:340px">${icon('link')}<input id="ev-corr" placeholder="Correlation ID" value="${esc(filter.correlationId)}" aria-label="Filter by correlation ID"></label>
@@ -865,7 +1109,7 @@ async function renderAlerts(el) {
     <div class="card elevated stack">
       <div class="card-head" style="margin:0">${icon('play_circle')}<div class="title-medium" style="flex:1">Run detection</div></div>
       <div class="row spread">
-        ${sourceToggle('al-src', view.source)}
+        ${sourceToggle('al-src', view.source, true)}
         <button class="btn btn-filled" id="al-run">${icon('bolt')}Run all rules</button>
       </div>
       <div id="al-run-out" class="body-small muted">Running again replaces the previous evaluation.</div>
@@ -965,7 +1209,9 @@ async function renderAlerts(el) {
     const d = r.data;
     out.innerHTML = `<div class="row">${[
       ['Events evaluated', d.eventsEvaluated], ['Alerts raised', d.alertsRaised], ['Evaluation moment', fmtTime(d.evaluationMoment)],
-    ].map(([k, v]) => `<span class="tag info">${k}: ${v}</span>`).join('')}<span class="tag ok">every related event resolves</span></div>`;
+    ].map(([k, v]) => `<span class="tag info">${k}: ${v}</span>`).join('')}${d.alertsRaised
+      ? '<span class="tag ok">every related event resolves</span>'
+      : '<span class="tag ok">no alerts: the rules stay quiet on this traffic</span>'}</div>`;
     snackbar(`${d.alertsRaised} alerts raised from ${d.eventsEvaluated} events.`);
     loadAlerts();
   };
@@ -1019,6 +1265,13 @@ async function renderGraph(el) {
       </div>
     </div>
     <div class="section">
+      <div class="section-head"><h2 class="title-large">Alert neighbourhood</h2>
+        <div class="field compact" style="min-width:min(100%,360px)"><select id="g-nb-alert" aria-label="Alert to draw"><option>Loading alerts…</option></select></div></div>
+      <p class="page-intro" style="margin-bottom:12px">One alert and everything around it: the events that raised it and the users behind them, the ATT&amp;CK technique it indicates, and that technique's controls, runbooks, target service and vulnerabilities. This is the chain the GraphRAG answer walks.</p>
+      <div id="g-nb"><div class="progress"></div></div>
+      <div id="g-nb-detail" class="section"></div>
+    </div>
+    <div class="section">
       <div class="section-head"><h2 class="title-large">Demonstrated queries</h2></div>
       <div class="grid grid-auto" id="g-queries"></div>
       <div id="g-run" class="section"></div>
@@ -1026,6 +1279,49 @@ async function renderGraph(el) {
 
   let services = ['auth-service', 'incident-service', 'asset-service'];
   let loadSource = 'capture';
+
+  async function loadNeighbourhoodPicker() {
+    const select = $('#g-nb-alert');
+    const alerts = await loadGraphAlerts(true);
+    if (!select.isConnected) return;
+    if (!alerts || !alerts.length) {
+      select.innerHTML = '<option>No alerts in the graph</option>';
+      $('#g-nb').innerHTML = emptyState('hub', alerts ? 'The graph holds no alert yet' : 'Neo4j is not reachable', alerts ? 'Load the graph above.' : 'Start the stack, then reload this screen.');
+      return;
+    }
+    const preferred = alerts.find((a) => a.ruleName === 'Multiple Failed Logins') || alerts[0];
+    select.innerHTML = alerts.map((a) => `<option value="${esc(a.alertId)}"${a === preferred ? ' selected' : ''}>${esc(a.ruleName)} · ${esc(a.alertId)}</option>`).join('');
+    select.onchange = () => drawNeighbourhood(select.value);
+    drawNeighbourhood(preferred.alertId);
+  }
+
+  async function drawNeighbourhood(alertId) {
+    const box = $('#g-nb');
+    box.innerHTML = '<div class="progress"></div>';
+    $('#g-nb-detail').innerHTML = '';
+    const r = await api(`/console/api/graph/neighbourhood?alertId=${encodeURIComponent(alertId)}`);
+    if (!box.isConnected) return;
+    if (!r.ok) { box.innerHTML = errorBanner(errorText(r)); return; }
+    const render = (selectedId) => {
+      box.innerHTML = neighbourhoodSvg(r.data, selectedId);
+      $$('[data-node]', box).forEach((g) => {
+        const open = () => { render(g.dataset.node); showNode(r.data.nodes.find((n) => n.id === g.dataset.node)); };
+        g.onclick = open;
+        g.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
+      });
+    };
+    render(r.data.centre);
+    showNode(r.data.nodes.find((n) => n.id === r.data.centre));
+  }
+
+  function showNode(node) {
+    const shown = Object.entries(node.properties).filter(([, v]) => v !== null && v !== '' && !(Array.isArray(v) && !v.length));
+    $('#g-nb-detail').innerHTML = `
+      <div class="card outlined stack">
+        <div class="row"><span class="tag" style="background:${nodeColour(node.label)};color:var(--md-surface)">${esc(node.label)}</span><span class="title-medium">${esc(node.caption)}</span></div>
+        ${kv(shown.map(([k, v]) => [k, Array.isArray(v) ? v.map((x) => `<span class="tag" style="margin:0 4px 4px 0">${esc(x)}</span>`).join('') : SEVERITIES.includes(v) ? sevTag(v) : esc(v)]))}
+      </div>`;
+  }
 
   async function loadSummary() {
     const box = $('#g-summary');
@@ -1100,9 +1396,105 @@ async function renderGraph(el) {
     snackbar(r.data.exitCode === 0 ? 'Graph load finished.' : 'Graph load failed. See the output.');
     state.graphAlerts = null;
     loadSummary();
+    loadNeighbourhoodPicker();
   };
   loadSummary();
   loadQueries();
+  loadNeighbourhoodPicker();
+}
+
+/* ---------- Alert neighbourhood picture ---------- */
+
+const NODE_COLOURS = {
+  Alert: 'var(--node-alert)', Threat: 'var(--node-threat)', Control: 'var(--node-control)',
+  Document: 'var(--node-document)', Event: 'var(--node-event)', User: 'var(--node-user)',
+  Service: 'var(--node-service)',
+};
+const nodeColour = (label) => NODE_COLOURS[label] || 'var(--node-other)';
+const clip = (text, n) => (text.length > n ? `${text.slice(0, n - 1)}…` : text);
+
+/**
+ * A layered drawing of an alert's neighbourhood, read left to right as the
+ * chain the GraphRAG answer walks:
+ *
+ *   User -> Events -> Alert -> Threat -> Controls / runbooks / vulnerabilities / service
+ *
+ * One column per step, nodes evenly spaced, links as curves, and each gap
+ * named once by its relationship type instead of a label on every line. Only
+ * the last gap mixes types, so only its links are labelled individually.
+ * Deterministic, so the same graph always draws the same picture - which
+ * matters on a recording.
+ */
+function neighbourhoodSvg(data, selectedId) {
+  const COLUMN_OF = { User: 0, Event: 1, Incident: 1, Alert: 2, Threat: 3 };
+  const X = [70, 255, 450, 640, 800];
+  const ROW = 66; const TOP = 70; const R = 14;
+  const LAST_ORDER = ['Control', 'Document', 'Vulnerability', 'Service', 'Threat'];
+  const byId = Object.fromEntries(data.nodes.map((n) => [n.id, n]));
+  // Only the technique the alert INDICATES sits in the threat column; its
+  // sub-techniques are things it links to, so they join the last column.
+  const indicated = new Set(data.links
+    .filter((l) => l.source === data.centre || l.target === data.centre)
+    .flatMap((l) => [l.source, l.target]));
+  const columnOf = (n) => {
+    if (n.id === data.centre) return 2;
+    if (n.label === 'Threat' && !indicated.has(n.id)) return 4;
+    return COLUMN_OF[n.label] ?? 4;
+  };
+
+  const columns = [[], [], [], [], []];
+  data.nodes.forEach((n) => columns[columnOf(n)].push(n));
+  const rank = (n) => { const i = LAST_ORDER.indexOf(n.label); return i === -1 ? LAST_ORDER.length : i; };
+  columns.forEach((col) => col.sort((a, b) => rank(a) - rank(b)
+    || String(a.properties.timestamp || a.caption).localeCompare(String(b.properties.timestamp || b.caption))));
+
+  const tallest = Math.max(...columns.map((c) => c.length), 1);
+  const H = TOP + tallest * ROW + 10;
+  const W = 1010;
+  const pos = {};
+  columns.forEach((col, c) => {
+    const offset = TOP + ((tallest - col.length) * ROW) / 2;
+    col.forEach((n, i) => { pos[n.id] = { x: X[c], y: offset + i * ROW + ROW / 2 - 10, column: c }; });
+  });
+
+  // Name each of the first three gaps once, by the relationship types crossing it.
+  const headers = [0, 1, 2].map((gap) => {
+    const types = [...new Set(data.links
+      .filter((l) => Math.min(pos[l.source].column, pos[l.target].column) === gap
+        && Math.abs(pos[l.source].column - pos[l.target].column) === 1)
+      .map((l) => l.type))];
+    return types.length ? `<text class="link-label" x="${(X[gap] + X[gap + 1]) / 2}" y="30" text-anchor="middle">${esc(types.join(' · '))}</text>` : '';
+  }).join('');
+
+  const links = data.links.map((l) => {
+    let a = pos[l.source]; let b = pos[l.target];
+    if (a.x > b.x) [a, b] = [b, a];
+    const mid = (a.x + b.x) / 2;
+    const lastGap = b.column === 4 && a.column === 3;
+    return `<g><title>${esc(byId[l.source].caption)} -[:${esc(l.type)}]-> ${esc(byId[l.target].caption)}</title>
+      <path class="link" fill="none" d="M${a.x} ${a.y} C${mid} ${a.y}, ${mid} ${b.y}, ${b.x} ${b.y}"/>
+      ${lastGap ? `<text class="link-label" x="${b.x - R - 6}" y="${b.y - 6}" text-anchor="end">${esc(l.type)}</text>` : ''}</g>`;
+  }).join('');
+
+  const nodes = data.nodes.map((n) => {
+    const p = pos[n.id]; const centre = n.id === data.centre; const r = centre ? R + 8 : R;
+    const right = p.column === 4;
+    const tx = right ? p.x + r + 8 : p.x;
+    const ty = right ? p.y - 2 : p.y + r + 13;
+    const anchor = right ? 'start' : 'middle';
+    return `<g class="node${n.id === selectedId ? ' selected' : ''}" data-node="${esc(n.id)}" tabindex="0" role="button" aria-label="${esc(n.label)} ${esc(n.caption)}">
+      <title>${esc(n.label)}: ${esc(n.caption)}</title>
+      <circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${nodeColour(n.label)}"/>
+      <text class="node-label" x="${tx}" y="${ty}" text-anchor="${anchor}">${esc(n.label)}</text>
+      <text x="${tx}" y="${ty + 13}" text-anchor="${anchor}">${esc(clip(n.caption, right ? 28 : 20))}</text>
+    </g>`;
+  }).join('') + headers;
+  const labels = [...new Set(data.nodes.map((n) => n.label))];
+  return `<div class="graph-wrap">
+    <div class="graph-scroll"><svg class="graph-svg" viewBox="0 0 ${W} ${H}" role="group" aria-label="Graph neighbourhood of the selected alert">${links}${nodes}</svg></div>
+    <div class="legend">${labels.map((l) => `<span class="legend-item"><span class="legend-swatch" style="background:${nodeColour(l)}"></span>${esc(l)}</span>`).join('')}
+      <span class="legend-item">${data.nodes.length} nodes · ${data.links.length} relationships · click a node for its properties</span></div>
+  </div>`;
 }
 
 /* ---------- Ask GraphRAG ---------- */
@@ -1138,9 +1530,18 @@ async function renderAsk(el) {
       'Which users are linked to high severity alerts?',
       'What is the impact if asset-service fails?',
     ].filter(Boolean);
-    $('#ask-suggest').innerHTML = suggestions.map((s) => `<button class="chip" type="button">${icon('lightbulb')}${esc(s)}</button>`).join('')
+    // The two refusals from the Phase 2 demo script: one the retriever does
+    // not understand, and one it understands but the graph holds nothing for.
+    const refusals = [
+      'What is the weather in Potchefstroom?',
+      'Why was alert alt-ffffffffffff created?',
+    ];
+    const chips = (list, glyph) => list.map((s) => `<button class="chip" type="button" data-question="${esc(s)}">${icon(glyph)}${esc(s)}</button>`).join('');
+    $('#ask-suggest').innerHTML = chips(suggestions, 'lightbulb')
+      + `<div class="label-small muted" style="flex-basis:100%;margin-top:8px">Questions the graph cannot answer, which it refuses rather than guesses</div>`
+      + chips(refusals, 'block')
       + (alerts ? '' : `<span class="body-small muted">Neo4j is not reachable, so answers are unavailable until the stack is up.</span>`);
-    $$('#ask-suggest .chip').forEach((c, i) => { c.onclick = () => { textarea.value = suggestions[i]; $('#ask-form').requestSubmit(); }; });
+    $$('#ask-suggest .chip').forEach((c) => { c.onclick = () => { textarea.value = c.dataset.question; $('#ask-form').requestSubmit(); }; });
   })();
 
   $('#ask-form').onsubmit = async (e) => {
@@ -1268,6 +1669,8 @@ function renderActivity(el) {
 
 const ROUTES = {
   overview: { title: 'Overview', render: renderOverview },
+  demo: { title: 'Demo guide', render: renderDemo },
+  platform: { title: 'Platform', render: renderPlatform },
   incidents: { title: 'Incidents', render: renderIncidents },
   assets: { title: 'Assets', render: renderAssets },
   users: { title: 'Users', render: renderUsers },

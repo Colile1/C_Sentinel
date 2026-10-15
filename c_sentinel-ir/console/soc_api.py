@@ -7,9 +7,12 @@ the results as JSON. The alert listing and status changes themselves are the
 alert service's own router, mounted in the same process by `console.main`, so
 the alerts a detection run stores here are the ones `/api/v1/alerts` serves.
 
-Two event sources, matching the CLIs' `--file` and default modes:
+Three event sources, matching the CLIs' `--file` and default modes:
   capture   the committed attack capture, docs/evidence/step15-attack-events.jsonl
             - works with no Docker at all
+  normal    the committed capture of an ordinary workflow,
+            docs/evidence/step12-correlated-logs.jsonl - the rules should stay
+            quiet on it (Phase 2 demo script, section 2)
   live      `docker compose logs` of the running stack
 
 Author: Colile
@@ -35,7 +38,7 @@ from soc.collector.store import EventStore
 from soc.rules.catalogue import all_rules, evaluate_all
 from soc.rules.main import latest_event_time, persist_alerts
 
-from console.settings import CAPTURED_EVENTS
+from console.settings import CAPTURED_EVENTS, NORMAL_EVENTS
 
 router = APIRouter(prefix="/console/api/soc", tags=["soc"])
 
@@ -44,7 +47,15 @@ class EventSource(str, Enum):
     """Where the collector reads events from."""
 
     CAPTURE = "capture"
+    NORMAL = "normal"
     LIVE = "live"
+
+
+#: The committed file behind each file-backed source; `live` has none.
+_SOURCE_FILES = {
+    EventSource.CAPTURE: CAPTURED_EVENTS,
+    EventSource.NORMAL: NORMAL_EVENTS,
+}
 
 
 class DetectionRequest(BaseModel):
@@ -56,13 +67,14 @@ class DetectionRequest(BaseModel):
 def collect(source: EventSource) -> EventStore:
     """
     Purpose: build a fresh event store from one source.
-    Inputs:  source - capture or live.
+    Inputs:  source - capture, normal or live.
     Output:  the populated `EventStore`.
     Raises:  `ValidationError` (422) naming the problem when the source cannot
              be read - most often Docker missing for `live`.
     """
     try:
-        path = Path(CAPTURED_EVENTS) if source is EventSource.CAPTURE else None
+        file = _SOURCE_FILES.get(source)
+        path = Path(file) if file is not None else None
         # The same resolution the CLIs use: a file when given, else docker logs.
         return build_store(select_source(argparse.Namespace(file=path, stdin=False)))
     except (RuntimeError, OSError, ValueError) as exc:
@@ -139,7 +151,7 @@ def run_detection(request: DetectionRequest) -> dict[str, Any]:
     Output:  the run summary plus the alerts raised, newest first.
     """
     store = collect(request.source)
-    if request.source is EventSource.CAPTURE:
+    if request.source in _SOURCE_FILES:
         now = latest_event_time(store) or datetime.now(timezone.utc)
     else:
         now = datetime.now(timezone.utc)
