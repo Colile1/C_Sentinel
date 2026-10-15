@@ -21,7 +21,7 @@ services it is not on the request path and does not register with Consul (D-30).
 | `stack_status.py` | Health probes, the Neo4j Bolt check, tool links |
 | `platform_api.py` | Consul registry, containers with stop/start for the services and their databases, per-database tables, gateway probes |
 | `soc_api.py` | Events over three sources, rule catalogue, detection runs, an alert's cited events |
-| `graph_api.py` | The five queries, graph counts and reload, an alert's neighbourhood, GraphRAG |
+| `graph_api.py` | The six queries, graph counts and reload, an alert's neighbourhood, GraphRAG |
 | `actions.py` | The runnable script catalogue |
 | `static/` | The plain Material Design UI (HTML, CSS and JS, no build step) |
 | `tests/` | The HTTP contract, with no containers running |

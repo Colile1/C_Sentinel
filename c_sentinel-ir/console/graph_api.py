@@ -2,7 +2,7 @@
 graph_api.py - the knowledge graph and GraphRAG screens' backend.
 
 Four things, each delegating to the module that already owns it:
-  - the five demonstrated Cypher queries   kg.cypher.queries + run_query
+  - the six demonstrated Cypher queries    kg.cypher.queries + run_query
   - a per-label node count                 one read-only Cypher statement
   - reloading the graph                    kg.loader.main.main, as its CLI runs
   - asking a question                      rag.generation.main.answer_question
@@ -87,7 +87,7 @@ def _require_graph() -> JSONResponse | None:
     return None if bolt_reachable() else JSONResponse(_NEO4J_DOWN, status_code=503)
 
 
-@router.get("/queries", summary="The five demonstrated queries")
+@router.get("/queries", summary="The six demonstrated queries")
 def list_queries() -> list[dict[str, Any]]:
     """
     Purpose: the query catalogue with each query's Cypher, so the UI can show
@@ -109,7 +109,7 @@ def list_queries() -> list[dict[str, Any]]:
 @router.get("/queries/{key}", summary="Run one demonstrated query")
 def run_named_query(key: str, request: Request) -> Any:
     """
-    Purpose: run one of the five queries with its parameters from the query
+    Purpose: run one of the six queries with its parameters from the query
              string - the same validation `kg.cypher.graph_service` applies.
     Inputs:  key - the query key; the query string carries its parameters.
     Output:  200 with the rows, 422 on a blank parameter, 503 with no Neo4j.

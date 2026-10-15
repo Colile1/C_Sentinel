@@ -33,7 +33,7 @@ from pydantic import BaseModel
 from common.errors import ValidationError
 
 from soc.alert_service.dependencies import get_alert_store
-from soc.collector.main import build_store, select_source
+from soc.collector.main import collect as collect_events
 from soc.collector.store import EventStore
 from soc.rules.catalogue import all_rules, evaluate_all
 from soc.rules.main import latest_event_time, persist_alerts
@@ -75,8 +75,9 @@ def collect(source: EventSource) -> EventStore:
     try:
         file = _SOURCE_FILES.get(source)
         path = Path(file) if file is not None else None
-        # The same resolution the CLIs use: a file when given, else docker logs.
-        return build_store(select_source(argparse.Namespace(file=path, stdin=False)))
+        # The same resolution the CLIs use: a file when given, else docker logs
+        # plus Consul's failing health checks.
+        return collect_events(argparse.Namespace(file=path, stdin=False))
     except (RuntimeError, OSError, ValueError) as exc:
         raise ValidationError(
             f"could not collect events from the {source.value} source: {exc}",
