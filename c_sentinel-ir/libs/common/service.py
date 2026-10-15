@@ -9,7 +9,7 @@ place so they cannot drift. `create_service_app` builds that shell; each
 service's app/main.py adds only its own routers to it.
 
 This is a mild departure from libs/common/README.md, which puts the wiring in
-each app/main.py - see DECISIONS.md D-08.
+each app/main.py.
 
 Author: Colile
 """

@@ -1,7 +1,7 @@
 # Security event schema — the contract
 
 **Status: FIXED at build step 3. Changing a field name after that is a breaking change to every
-service and to all of Phase 2, and needs a `DECISIONS.md` entry.**
+service and to all of Phase 2.**
 
 Every security-relevant thing that happens in this system is emitted as one JSON line in this exact
 shape, by `libs/common/events.py` and by nothing else. This schema is taken directly from the

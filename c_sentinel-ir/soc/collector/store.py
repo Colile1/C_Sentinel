@@ -9,7 +9,7 @@ time window ("five failed logins in five minutes").
 
 In-process, not a database: the rules are pure functions of the store's
 contents and a clock, so persistence would add a technology without serving
-step 15 or the demo. Recorded as D-25 in DECISIONS.md.
+step 15 or the demo.
 
 Author: Colile
 """

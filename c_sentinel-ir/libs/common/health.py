@@ -8,8 +8,7 @@ but unreachable database makes the service unhealthy (503) so Consul marks the
 instance critical; liveness alone is served separately at /health/live for the
 container's own restart policy, which must not flap when the database blips.
 
-Framework-coupled, so it lives here rather than in errors.py or logging.py -
-see DECISIONS.md D-06.
+Framework-coupled, so it lives here rather than in errors.py or logging.py.
 
 Author: Colile
 """

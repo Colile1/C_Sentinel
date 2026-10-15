@@ -7,8 +7,7 @@ detection rule's alerts to the technique that rule detects.
 
 **T1110 Brute Force** and its four sub-techniques are the worked example the
 specification requires and are certain. One further technique is loaded per
-other detection rule so every rule's alerts have a threat to point at (the open
-decision in `DECISIONS.md`, closed here):
+other detection rule so every rule's alerts have a threat to point at:
 
   Multiple Failed Logins      -> T1110      Brute Force
   Unauthorised Endpoint Access -> T1078     Valid Accounts

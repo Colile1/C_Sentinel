@@ -9,7 +9,7 @@ containerised* — separate containers, separate images, separate lifecycles.
 |------|----------------|
 | `docker-compose.yml` | The stack: Consul, three PostgreSQL containers, three services. Health checks and `depends_on: condition: service_healthy` so `up` reaches a working system unattended. Kong, Prometheus and Grafana join it at build steps 10 and 11 |
 | `Dockerfile.service` | The shared multi-stage build for a FastAPI service, selected by the `SERVICE_NAME` build argument. One file rather than three near-identical ones, per the DRY rule. Build context is the repository root, because every image needs `libs/` and `requirements.lock.txt` as well as its own `app/` |
-| `kong-entrypoint.sh` | Substitutes `$KONG_JWT_SECRET` into a rendered copy of `gateway/kong.yml` at container start, then execs Kong's own entrypoint. Exists because Kong 3.7 has no working way to pull a secret into a `jwt_secrets` credential in DB-less mode, and both forms that look like they do fail silently — see `DECISIONS.md` D-20 |
+| `kong-entrypoint.sh` | Substitutes `$KONG_JWT_SECRET` into a rendered copy of `gateway/kong.yml` at container start, then execs Kong's own entrypoint. Exists because Kong 3.7 has no working way to pull a secret into a `jwt_secrets` credential in DB-less mode, and both forms that look like they do fail silently |
 | `.env.example` | Every environment variable with a safe placeholder: per-service database name, user and password (the `DATABASE_URL` is assembled from these three in `docker-compose.yml`, so no connection string is checked in), `JWT_SECRET`, token expiry, Consul address, log level, the resilience thresholds, the Grafana admin password, and `BOOTSTRAP_ADMIN_USERNAME` / `BOOTSTRAP_ADMIN_PASSWORD` — the one admin auth-service seeds at startup so `scripts/seed_data.py` has an account to authenticate as (D-23). Copied to `.env`, which is git-ignored; replace every `CHANGE_ME` before a real run |
 | `postgres/init/` | Per-service database initialisation SQL, one file per service database — `auth-db.sql`, `incident-db.sql`, `asset-db.sql` |
 
@@ -84,7 +84,7 @@ to Consul under its Compose service name so the health check and Kong both resol
 | `grafana` | grafana/grafana | 3901 host -> 3000 container | Provisioned datasource and dashboard. Host port moved off the 3000/3001 range some Windows installs reserve for Hyper-V (see `netsh interface ipv4 show excludedportrange`) |
 | `neo4j` | neo4j:5.22 | 7474 HTTP, 7687 Bolt | Health-checked over HTTP (`wget` against `:7474/`), not `cypher-shell` — its JVM start-up can alone exceed a short probe timeout on a loaded host |
 
-**Why three database containers.** Settled — see `DECISIONS.md` D-04. Three containers costs about
+**Why three database containers.** Three containers costs about
 70 MB more than one container holding three databases, on a stack that runs roughly 1 GB either way,
 so the resource argument does not decide it. What decides it is evidence: anyone reading
 `docker compose ps` sees the separation without being asked to take it on faith, and stopping

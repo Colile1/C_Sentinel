@@ -3,7 +3,7 @@ password_service.py - the only place auth-service hashes or checks a password.
 
 Bcrypt is used directly rather than through passlib: passlib 1.7.4 probes
 `bcrypt.__about__`, which bcrypt 4.1+ removed, and every hash call then fails.
-See DECISIONS.md D-05. Keeping both operations behind this one module means the
+Keeping both operations behind this one module means the
 algorithm is swappable in one file and nothing else in the service ever sees a
 plaintext password after this point.
 

@@ -2,7 +2,7 @@
 platform_api.py - the Phase 1 platform screen: registry, containers,
 databases and the gateway's enforcement.
 
-Each endpoint answers one section of `docs/report/demo-script.md` that
+Each endpoint answers one section of the Phase 1 demonstration that
 otherwise needs a terminal or another tool:
 
   /registry          section 3 - every Consul-registered instance, its address

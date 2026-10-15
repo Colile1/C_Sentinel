@@ -780,15 +780,13 @@ async function renderUsers(el) {
 /* ---------- Demo guide ---------- */
 
 /**
- * The two demo scripts (docs/report/demo-script.md and phase2-demo-script.md)
- * as checklists. Each step says what to show, jumps to the console screen
+ * The two demo walkthroughs, one per phase, as checklists. Each step says what to show, jumps to the console screen
  * that shows it, names the files to have open, and keeps the terminal command
  * the script uses for anyone following along without the console.
  */
 const DEMO_GUIDES = {
   phase1: {
     title: 'Phase 1 · the microservices platform',
-    script: 'docs/report/demo-script.md',
     steps: [
       { title: 'Before recording', points: ['Run start.bat and wait for "all green", then console.bat.', 'Camera on for identification.', 'Sign in as the bootstrap admin.', 'Aim for 8 to 10 minutes.'],
         go: [['overview', 'Overview']], files: [], cmd: 'start.bat && console.bat' },
@@ -808,7 +806,6 @@ const DEMO_GUIDES = {
   },
   phase2: {
     title: 'Phase 2 · SOC, knowledge graph and GraphRAG',
-    script: 'docs/report/phase2-demo-script.md',
     steps: [
       { title: 'Before recording', points: ['start.bat loads the graph from the committed attack capture.', 'Have the Neo4j Browser ready (user neo4j, password from deploy/.env).'],
         go: [['overview', 'Overview'], ['graph', 'Knowledge graph']], files: ['kg/model/graph_model.md'], cmd: 'python -m kg.loader.main --file docs/evidence/step15-attack-events.jsonl' },
@@ -857,8 +854,7 @@ function renderDemo(el) {
             <details class="disclose"><summary>Terminal equivalent</summary><pre class="code">${esc(step.cmd)}</pre></details>
           </div>
         </div>`;
-      }).join('')}</div>
-      <p class="body-small muted" style="margin-top:16px">Source: <span class="mono">${esc(guide.script)}</span></p>`;
+      }).join('')}</div>`;
 
     $$('#demo-phase button', el).forEach((b) => { b.onclick = () => { view.phase = b.dataset.phase; persist(); draw(); }; });
     $('#demo-reset', el).onclick = () => {

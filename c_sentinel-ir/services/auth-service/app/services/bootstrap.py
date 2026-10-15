@@ -7,7 +7,7 @@ that gap: when `BOOTSTRAP_ADMIN_USERNAME` and `BOOTSTRAP_ADMIN_PASSWORD` are
 both set, auth-service creates that one admin at startup and never again.
 `scripts/seed_data.py` then logs in as it and creates every other account
 through the public API, so seeding still goes through HTTP and no other service
-writes to `auth_db`. See DECISIONS.md D-23.
+writes to `auth_db`.
 
 Idempotent: a username that already exists is left untouched, so the stack can
 restart without error.

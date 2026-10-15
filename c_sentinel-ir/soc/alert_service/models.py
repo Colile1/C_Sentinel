@@ -4,7 +4,7 @@ models.py - the alert schema, fixed by the Phase 2 specification.
 An `Alert` is what a detection rule produces when it fires. The field names are
 a contract in exactly the way `common.events.SecurityEvent`'s are: the alert API
 serves them, `kg/loader` projects them into the graph, and `rag/retrieval` cites
-them as evidence. Renaming one is a breaking change needing a DECISIONS.md entry.
+them as evidence. Renaming one is a breaking change.
 
 `related_events` holds real `eventId` values. That is the link that lets an
 answer point at the events which caused an alert rather than assert a cause, so

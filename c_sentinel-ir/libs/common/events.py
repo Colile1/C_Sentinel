@@ -3,8 +3,7 @@ events.py - the security event schema, fixed by docs/soc-events.md.
 
 This module is the ONLY sanctioned way to construct a security event. Every
 field name here is a contract with Phase 2's collector, detection rules and
-knowledge-graph loaders: renaming one is a breaking change to the whole system
-and needs a DECISIONS.md entry.
+knowledge-graph loaders: renaming one is a breaking change to the whole system.
 
 Extra fields are rejected and missing required fields raise, because a silently
 malformed event stream is discovered weeks later in Phase 2 rather than now.

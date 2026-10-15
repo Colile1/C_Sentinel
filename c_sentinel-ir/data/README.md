@@ -25,8 +25,7 @@ minimum that makes the demo tell a story:
 
 Seed data is loaded through the public API, not by SQL insert. If seeding needs a direct database
 write, an endpoint is missing. The single exception is the bootstrap admin above, which auth-service
-itself creates at startup because no API path to the first admin can exist — see `DECISIONS.md`
-D-23.
+itself creates at startup because no API path to the first admin can exist.
 
 Done when: `python scripts/seed_data.py` on a fresh stack completes twice in a row with no error and
 no duplicated rows.

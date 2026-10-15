@@ -31,7 +31,7 @@ an incident names an asset. Calls nothing. Depends on `libs/common` and `asset_d
 asset that is referenced by an incident — is not implemented here. Checking that would mean this
 service reading `incident_db`, which violates Database-per-Service; the refusal, if wanted, belongs
 in `incident-service` or is a cross-service check added later. Not needed for step 6's own
-verification. See `DECISIONS.md`.
+verification.
 
 This service is deliberately the one stopped during the demo (`scripts/break_asset_service.py`), so
 its unavailability must degrade `incident-service` gracefully rather than break it — that behaviour

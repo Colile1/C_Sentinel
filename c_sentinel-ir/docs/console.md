@@ -76,7 +76,7 @@ the tab closes.
 | Screen | What you can do | Project code it reaches |
 |--------|-----------------|-------------------------|
 | **Overview** | Health of all eight components; open incidents, assets, open alerts and captured events; the security workflow; links to Grafana, Prometheus, Consul, Neo4j Browser and each service's OpenAPI page | Each component's health endpoint; the gateway |
-| **Demo guide** | Both demo scripts as checklists: what to show at each step, buttons that jump to the screen that shows it, the files to have open in an editor, and the terminal command the script uses. Ticks are remembered in the browser | `docs/report/demo-script.md`, `docs/report/phase2-demo-script.md` |
+| **Demo guide** | Both demo walkthroughs as checklists: what to show at each step, buttons that jump to the screen that shows it, the files to have open in an editor, and the terminal command the script uses. Ticks are remembered in the browser | `console/static/app.js` (`DEMO_GUIDES`) |
 | **Incidents** | List, filter by status and severity, and search. Raise an incident against an asset, edit it, move its status, change its severity, and delete it (admin) | `incident-service` through Kong, which calls `asset-service` through `ResilientClient` |
 | **Assets** | List, filter by type, and search. Open an asset to see the incidents raised against it. Register, edit and remove assets (admin) | `asset-service` through Kong. Opening a CRITICAL asset emits `ASSET_ACCESSED` |
 | **Users** | List accounts and create users (admin) | `auth-service` through Kong |

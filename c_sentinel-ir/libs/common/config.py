@@ -73,7 +73,7 @@ class Settings(BaseSettings):
     # first admin the system cannot create its first user. auth-service creates
     # this one account, once, at startup when both are set; `scripts/seed_data.py`
     # then logs in as it and creates every other account through the public API.
-    # See DECISIONS.md D-23. Left blank elsewhere so no other service acts on it.
+    # Left blank elsewhere so no other service acts on it.
     bootstrap_admin_username: str = Field(default="")
     bootstrap_admin_password: str = Field(default="")
 
